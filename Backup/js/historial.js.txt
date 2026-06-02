@@ -1,0 +1,20 @@
+function registrarHistorial(texto) {
+  receta.historial.push({
+    fecha: new Date().toLocaleString(),
+    cambio: texto,
+    snapshot: JSON.stringify(receta)
+  });
+
+  guardarReceta();
+}
+
+function renderHistorial() {
+  const cont = document.getElementById("historial");
+  if (!cont) return;
+
+  cont.innerHTML = "";
+
+  receta.historial.forEach(h => {
+    cont.innerHTML += `<div>${h.fecha} - ${h.cambio}</div>`;
+  });
+}

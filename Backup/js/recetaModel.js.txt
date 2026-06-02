@@ -1,0 +1,55 @@
+function crearRecetaBase() {
+  return {
+    nombre: "",
+    ingredientes: [],
+    produccion: 1,
+    costoBase: 0,
+    costosFijos: [],
+    escenarios: [
+      {
+        nombre: "Minorista",
+        margen: 0.45,
+        cargaFabril: 0.12
+      }
+    ],
+    historial: []
+  };
+}
+
+function crearMateriaPrima(data) {
+  return {
+    nombre: data.nombre,
+    proveedor: data.proveedor,
+    unidadBase: data.unidadBase,
+    cantidadEmpaque: data.cantidadEmpaque,
+    precioEmpaque: data.precioEmpaque
+  };
+}
+
+function crearRecetaBase() {
+  return {
+    nombre: "",
+    descripcion: "",
+    unidadProduccion: "",
+    produccion: 1,
+
+    ingredientes: [],
+
+    costoBase: 0,
+
+    costosFijos: [],
+
+    escenarios: [
+      {
+        nombre: "Minorista",
+        margen: 0.45,
+        cargaFabril: 0.12
+      }
+    ],
+
+    historial: [],
+
+    estado: "BORRADOR",
+    pdfGenerado: false
+  };
+}

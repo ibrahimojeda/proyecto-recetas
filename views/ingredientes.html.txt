@@ -1,0 +1,11 @@
+<h2>Ingredientes</h2>
+
+<select id="ingredienteMP"></select>
+<input id="ingredienteCantidad" type="number">
+
+<button onclick="agregarIngrediente()">Agregar</button>
+
+<div id="listaIngredientes"></div>
+
+<button onclick="irResumen()">Continuar</button>
+<button onclick="irReceta()">Volver</button>

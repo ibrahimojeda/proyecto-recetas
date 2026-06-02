@@ -1,0 +1,39 @@
+<h2>Dashboard - Sistema de Costeo</h2>
+
+<div style="display:flex;gap:20px;flex-wrap:wrap">
+	<div>
+		<h3>Recetas</h3>
+		<button onclick="crearNuevaReceta()">Crear nueva receta</button>
+		<button onclick="renderListadoRecetas()">Listar recetas</button>
+		<button onclick="irReceta()">Ir a receta (actual)</button>
+		<div id="listaRecetas" style="margin-top:10px"></div>
+	</div>
+
+	<div>
+		<h3>Navegación rápida</h3>
+		<button onclick="irIngredientes()">Ingredientes</button>
+		<button onclick="irResumen()">Resumen</button>
+		<button onclick="irPDF()">Generar PDF (vista)</button>
+		<button onclick="exportarJSON()">Exportar JSON</button>
+		<button onclick="exportarCSV()">Exportar CSV</button>
+	</div>
+
+	<div style="min-width:260px">
+		<h3>Materias primas</h3>
+		<div>
+			<input id="mpNombre" placeholder="Nombre" />
+			<input id="mpProveedor" placeholder="Proveedor" />
+			<input id="mpUnidad" placeholder="Unidad" style="width:80px" />
+			<input id="mpCantidadEmpaque" placeholder="Cant. empaque" type="number" style="width:90px" />
+			<input id="mpPrecioEmpaque" placeholder="Precio empaque" type="number" style="width:90px" />
+			<button onclick="agregarMateriaPrimaUI()">Agregar</button>
+		</div>
+		<div id="listaMaterias" style="margin-top:8px;max-height:200px;overflow:auto"></div>
+	</div>
+</div>
+
+<hr />
+
+<div>
+	<small>Usa los botones para navegar entre secciones. Algunas vistas dependen de una receta seleccionada.</small>
+</div>

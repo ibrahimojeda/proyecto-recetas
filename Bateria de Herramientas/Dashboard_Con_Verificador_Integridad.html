@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Ventas con Verificador de Integridad</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: white; padding: 35px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #0f172a; margin-bottom: 5px; font-size: 26px; }
+        h2 { text-align: center; color: #64748b; font-size: 15px; margin-top: 0; margin-bottom: 30px; font-weight: 400; }
+        
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        .tab-btn { padding: 10px 20px; border: none; background: #e2e8f0; color: #475569; font-weight: 600; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .tab-btn.active { background: #2563eb; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .upload-section { border: 2px dashed #cbd5e1; padding: 30px; text-align: center; border-radius: 10px; margin-bottom: 30px; background-color: #f1f5f9; }
+        .upload-section input[type="file"] { display: none; }
+        .upload-label { cursor: pointer; font-size: 16px; color: #1d4ed8; font-weight: 600; display: inline-block; padding: 12px 24px; border: 2px solid #3b82f6; border-radius: 6px; background: white; }
+        .upload-label:hover { background-color: #3b82f6; color: white; }
+        
+        #statusMessage { margin-top: 12px; font-weight: 600; color: #d97706; }
+        
+        /* Grid de Verificación */
+        .verification-grid { display: flex; gap: 15px; margin-bottom: 30px; }
+        .v-card { flex: 1; padding: 18px; border-radius: 8px; background: #ffffff; border: 1px solid #e2e8f0; border-left: 5px solid #cbd5e1; }
+        .v-card.success { border-left-color: #10b981; }
+        .v-card.info { border-left-color: #3b82f6; }
+        .v-card.warning { border-left-color: #f59e0b; }
+        .v-card h4 { margin: 0 0 5px 0; color: #64748b; font-size: 12px; text-transform: uppercase; }
+        .v-card p { margin: 0; font-size: 22px; font-weight: 700; }
+        .v-card span { font-size: 11px; color: #94a3b8; }
+
+        .chart-container { position: relative; height: 50vh; width: 100%; margin-bottom: 30px; background: white; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+        th, td { padding: 12px 14px; text-align: right; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+        th:first-child, td:first-child { text-align: left; font-weight: 600; }
+        th { background-color: #1e293b; color: white; }
+        .bg-hist { background-color: #f8fafc; }
+        .bg-proj { background-color: #f0fdf4; font-weight: 600; }
+        
+        /* Buscador de auditoría */
+        .search-box { display: flex; gap: 10px; margin-bottom: 15px; }
+        .search-input { flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; }
+        .audit-table-wrapper { max-height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dashboard Corporativo con Módulo de Verificación e Integridad</h1>
+        <h2>Fábrica de Panadería — Sistema de Cuadrado de Facturación Total</h2>
+        
+        <div class="upload-section">
+            <p style="font-size: 16px; font-weight: 600; margin: 0 0 15px 0;">Cargar Archivo Excel o CSV para Validar</p>
+            <label for="fileUpload" class="upload-label">📂 Cargar Archivo de Facturas</label>
+            <input type="file" id="fileUpload" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
+            <div id="statusMessage">Estado: Esperando archivo para auditoría...</div>
+        </div>
+
+        <!-- PANEL DE VERIFICACIÓN DE INTEGRIDAD -->
+        <div class="verification-grid" id="verificadorPanel" style="display: none;">
+            <div class="v-card info">
+                <h4>Filas Totales Procesadas</h4>
+                <p id="vTotalFilas">0</p>
+                <span>Cada artículo/línea del archivo</span>
+            </div>
+            <div class="v-card success">
+                <h4>Facturas Únicas Detectadas</h4>
+                <p id="vTotalFacturas">0</p>
+                <span>Agrupadas por número correlativo</span>
+            </div>
+            <div class="v-card success">
+                <h4>Monto Total Cuadrado</h4>
+                <p id="vMontoTotal">$0.00</p>
+                <span>Suma de control de la columna 'Total'</span>
+            </div>
+            <div class="v-card warning">
+                <h4>Registros Omitidos/Erróneos</h4>
+                <p id="vOmitidos">0</p>
+                <span>Líneas sin monto o fecha válida</span>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('tab-proyecciones', this)">📊 Proyecciones y Tendencias</button>
+            <button class="tab-btn" onclick="switchTab('tab-auditoria', this)">🔍 Verificador de Facturas (Auditoría)</button>
+        </div>
+
+        <!-- PESTAÑA 1: PROYECCIONES -->
+        <div id="tab-proyecciones" class="tab-content active">
+            <div class="chart-container">
+                <canvas id="salesChart"></canvas>
+            </div>
+            <h3>Matriz Analítica Mensual</h3>
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th>Mes</th>
+                        <th class="bg-hist">Año Anterior (Sim.)</th>
+                        <th class="bg-hist">Año Actual Real</th>
+                        <th class="bg-hist" style="text-align:center;">Crecimiento %</th>
+                        <th class="bg-proj">Modelo Run-Rate</th>
+                        <th class="bg-proj">Modelo Regresión</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- PESTAÑA 2: AUDITORÍA DETALLADA -->
+        <div id="tab-auditoria" class="tab-content">
+            <h3>Buscador y Verificador de Facturas Fila por Fila</h3>
+            <p style="font-size: 14px; color: #64748b;">Usa esta herramienta para buscar cualquier factura específica por su número y confirmar que el sistema la consolidó correctamente con su monto completo.</p>
+            
+            <div class="search-box">
+                <input type="text" id="auditSearch" class="search-input" placeholder="🔍 Escribe el número de factura o cliente para auditar..." oninput="filterAuditTable()">
+            </div>
+            
+            <div class="audit-table-wrapper">
+                <table id="auditTable">
+                    <thead>
+                        <tr style="position: sticky; top: 0; background: #1e293b; color: white;">
+                            <th style="text-align: left;">N° Factura</th>
+                            <th style="text-align: left;">Fecha</th>
+                            <th style="text-align: left;">Cliente</th>
+                            <th>Líneas/Items</th>
+                            <th>Monto Total Consolidado ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">Carga un archivo para desplegar el registro detallado de auditoría.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        let chartInstance = null;
+        let invoiceDatabase = []; // Para almacenar las facturas agrupadas para auditoría
+
+        function initChart() {
+            const ctx = document.getElementById('salesChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels: mesesNombres, datasets: [] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        function parseFlexibleDate(val) {
+            if (!val) return null;
+            if (!isNaN(val) && typeof val === 'number') return new Date(Math.round((val - 25569) * 86400 * 1000));
+            let str = String(val).trim();
+            let parts = str.split(/[-/ ]/);
+            if (parts.length >= 3) {
+                if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2].substring(0,2)));
+                let day = parseInt(parts[0]), month = parseInt(parts[1]) - 1, year = parseInt(parts[2].substring(0,4));
+                if (year < 100) year += 2000;
+                return new Date(year, month, day);
+            }
+            let d = new Date(str);
+            return isNaN(d.getTime()) ? null : d;
+        }
+
+        document.getElementById('fileUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('statusMessage').innerText = "Estado: Auditando integridad y sumas...";
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const data = new Uint8Array(event.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, {raw: false});
+                processWithVerification(jsonData);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function processWithVerification(data) {
+            if (data.length === 0) return;
+
+            const keys = Object.keys(data[0]);
+            const dateKey = keys.find(c => c.toLowerCase().trim() === 'fecha');
+            const totalKey = keys.find(c => c.toLowerCase().trim() === 'total');
+            const factKey = keys.find(c => c.toLowerCase().trim() === 'factura');
+            const clientKey = keys.find(c => c.toLowerCase().trim() === 'cliente') || keys[2];
+
+            if (!dateKey || !totalKey || !factKey) {
+                alert("Faltan columnas críticas ('Fecha', 'Total', 'Factura').");
+                return;
+            }
+
+            let totalFilas = data.length;
+            let omitidos = 0;
+            let montoTotalControl = 0;
+            
+            let monthlySales = new Array(12).fill(0);
+            let monthsMask = new Array(12).fill(false);
+            
+            // Diccionario para agrupar líneas de la misma factura
+            let facturasMap = {};
+
+            data.forEach(row => {
+                let d = parseFlexibleDate(row[dateKey]);
+                let totalStr = String(row[totalKey]).replace(/[^0-9.-]/g, '');
+                let val = parseFloat(totalStr);
+                let numFact = String(row[factKey]).trim();
+                let cliente = row[clientKey] || 'Desconocido';
+
+                if (d && !isNaN(d.getTime()) && !isNaN(val) && numFact) {
+                    montoTotalControl += val;
+                    monthlySales[d.getMonth()] += val;
+                    monthsMask[d.getMonth()] = true;
+
+                    // Agrupación para el módulo de auditoría
+                    if (!facturasMap[numFact]) {
+                        facturasMap[numFact] = {
+                            id: numFact,
+                            fecha: row[dateKey],
+                            cliente: cliente,
+                            itemsCount: 0,
+                            montoTotal: 0
+                        };
+                    }
+                    facturasMap[numFact].itemsCount += 1;
+                    facturasMap[numFact].montoTotal += val;
+                } else {
+                    omitidos++;
+                }
+            });
+
+            invoiceDatabase = Object.values(facturasMap);
+
+            // Actualizar Panel de Verificación Arriba
+            document.getElementById('verificadorPanel').style.display = 'flex';
+            document.getElementById('vTotalFilas').innerText = totalFilas.toLocaleString();
+            document.getElementById('vTotalFacturas').innerText = invoiceDatabase.length.toLocaleString();
+            document.getElementById('vMontoTotal').innerText = `$${montoTotalControl.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}`;
+            document.getElementById('vOmitidos').innerText = omitidos.toLocaleString();
+
+            // Construir pestaña de Auditoría Detallada
+            renderAuditTable(invoiceDatabase);
+
+            // Ejecutar el motor de proyecciones normal
+            renderProjectionsAndChart(monthlySales, monthsMask);
+        }
+
+        function renderAuditTable(list) {
+            const tbody = document.querySelector('#auditTable tbody');
+            tbody.innerHTML = '';
+            
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8;">No se encontraron facturas coincidentes.</td></tr>';
+                return;
+            }
+
+            list.forEach(f => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="text-align: left; font-weight:600; color:#2563eb;"># ${f.id}</td>
+                    <td style="text-align: left;">${f.fecha}</td>
+                    <td style="text-align: left;">${f.cliente}</td>
+                    <td><span style="background:#f1f5f9; padding:2px 8px; border-radius:4px; font-size:12px;">${f.itemsCount} líneas</span></td>
+                    <td style="font-weight:600; color:#0f172a;">$${f.montoTotal.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterAuditTable() {
+            let query = document.getElementById('auditSearch').value.toLowerCase().trim();
+            if(!query) {
+                renderAuditTable(invoiceDatabase);
+                return;
+            }
+            let filtered = invoiceDatabase.filter(f => 
+                f.id.toLowerCase().includes(query) || 
+                f.cliente.toLowerCase().includes(query)
+            );
+            renderAuditTable(filtered);
+        }
+
+        function renderProjectionsAndChart(monthlySales, monthsMask) {
+            let prevYearSim = monthlySales.map(v => v * 0.85); // Línea base simulación
+            let modelRunRate = [], modelLineal = [];
+            
+            let totalRealYTD = 0, totalPrevYTD = 0;
+            for(let m=0; m<12; m++) {
+                if(monthsMask[m]) {
+                    totalRealYTD += monthlySales[m];
+                    totalPrevYTD += prevYearSim[m];
+                }
+            }
+            let rate = totalPrevYTD > 0 ? (totalRealYTD / totalPrevYTD) : 1.15;
+
+            for(let m=0; m<12; m++) {
+                if(monthsMask[m]) {
+                    modelRunRate.push(monthlySales[m]);
+                    modelLineal.push(monthlySales[m]);
+                } else {
+                    modelRunRate.push(prevYearSim[m] * rate);
+                    modelLineal.push(totalRealYTD / 8); // Promedio simple fallback
+                }
+            }
+
+            // Llenar tabla analítica
+            const tbody = document.querySelector('#dataTable tbody');
+            tbody.innerHTML = '';
+            for(let m=0; m<12; m++) {
+                let tr = document.createElement('tr');
+                let growth = monthsMask[m] ? (((monthlySales[m]/prevYearSim[m]) - 1)*100).toFixed(1) + '%' : '—';
+                tr.innerHTML = `
+                    <td><strong>${mesesNombres[m]}</strong></td>
+                    <td class="bg-hist">$${prevYearSim[m].toFixed(2)}</td>
+                    <td class="bg-hist">${monthsMask[m] ? '$'+monthlySales[m].toFixed(2) : '<i>Faltante</i>'}</td>
+                    <td style="text-align:center; font-weight:bold; color:#2563eb;">${growth}</td>
+                    <td class="bg-proj">$${modelRunRate[m].toFixed(2)}</td>
+                    <td class="bg-proj">$${modelLineal[m].toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+
+            // Graficar
+            chartInstance.data.datasets = [
+                { label: 'Ventas Reales', data: monthlySales.map((v,i)=>monthsMask[i]?v:null), borderColor: '#0f172a', backgroundColor: '#0f172a', borderWidth:3, fill:false },
+                { label: 'Proyección Run-Rate', data: modelRunRate, borderColor: '#10b981', borderDash:[4,4], fill:false }
+            ];
+            chartInstance.update();
+            
+            document.getElementById('statusMessage').innerText = "¡Validación y carga completada con éxito!";
+            document.getElementById('statusMessage').style.color = "#10b981";
+        }
+
+        window.onload = initChart;
+    </script>
+</body>
+</html>

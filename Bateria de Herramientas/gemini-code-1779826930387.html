@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Recetas desde Excel — Gates</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #16a085;
+            --accent: #e67e22;
+            --bg: #f5f7fa;
+            --text: #34495e;
+            --card-bg: #ffffff;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+        }
+        header {
+            text-align: center;
+            border-bottom: 3px solid #eceff1;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: var(--primary);
+            margin: 0;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+        .file-upload-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            border: 2px dashed #16a085;
+            background-color: #fcfdfd;
+            padding: 30px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 30px;
+        }
+        .file-upload-wrapper:hover {
+            border-color: var(--primary);
+            background-color: #f2f9f8;
+        }
+        .file-upload-wrapper input[type="file"] {
+            display: none;
+        }
+        .upload-btn {
+            background-color: var(--secondary);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-top: 10px;
+            display: inline-block;
+        }
+        .status-msg {
+            margin-top: 10px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        .workspace {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 25px;
+        }
+        .sidebar {
+            background: #fafbfc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .sidebar h3 {
+            margin-top: 0;
+            color: var(--primary);
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+        .recipe-item {
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            background: white;
+            border: 1px solid #edf2f7;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .recipe-item:hover {
+            background: #edf2f7;
+            border-color: #cbd5e1;
+        }
+        .recipe-item.active {
+            background-color: var(--secondary);
+            color: white;
+            border-color: var(--secondary);
+        }
+        .main-panel {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 25px;
+            display: none;
+        }
+        .recipe-meta-box {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border-left: 4px solid var(--secondary);
+        }
+        .meta-card span {
+            display: block;
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .meta-card strong {
+            font-size: 18px;
+            color: var(--primary);
+        }
+        .interactive-controls {
+            background: #fff3e0;
+            border: 1px solid #ffe0b2;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .interactive-controls label {
+            font-weight: bold;
+            color: #e65100;
+        }
+        .input-factor {
+            width: 100px;
+            padding: 8px 12px;
+            font-size: 16px;
+            border: 2px solid #ffcc80;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .input-factor:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background-color: var(--primary);
+            color: white;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+        tr:hover {
+            background-color: #f8fafc;
+        }
+        .total-row {
+            background-color: #f1f5f9;
+            font-weight: bold;
+            font-size: 15px;
+        }
+        .text-right {
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Calculadora de Producción directa desde Excel (.xlsx)</h1>
+        <div class="subtitle">Módulo automatizado compatible con el archivo original de "Costos Gates"</div>
+    </header>
+
+    <div class="file-upload-wrapper" onclick="document.getElementById('excelFileInput').click()">
+        <p style="margin: 0 0 10px 0; font-size: 16px; color: #475569;">
+            <strong>Haz clic aquí para seleccionar el archivo original "Costos Gates.xlsx"</strong>
+        </p>
+        <p style="margin: 0; font-size: 13px; color: #94a3b8;">El sistema buscará de forma inteligente la pestaña "Recetas Panaderia"</p>
+        <div class="upload-btn">Cargar Archivo de Excel</div>
+        <input type="file" id="excelFileInput" accept=".xlsx, .xls">
+        <div id="statusOutput" class="status-msg"></div>
+    </div>
+
+    <div class="workspace">
+        <div class="sidebar">
+            <h3>Productos Detectados (<span id="recipeCount">0</span>)</h3>
+            <div id="recipeList">
+                <p style="color: #94a3b8; font-size: 13px;">Sube el archivo Excel para cargar el catálogo.</p>
+            </div>
+        </div>
+
+        <div class="main-panel" id="mainPanel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 id="recipeTitle" style="margin: 0; color: var(--primary);">Nombre de Receta</h2>
+                <span id="recipeVersion" style="background: #e2e8f0; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold;">-</span>
+            </div>
+
+            <div class="interactive-controls">
+                <label for="productionUnits">¿Cuántas unidades deseas producir?</label>
+                <input type="number" id="productionUnits" class="input-factor" value="1" min="1">
+                <span style="color: #64748b; font-size: 13px;">(Las cantidades de pesaje y costos variarán automáticamente)</span>
+            </div>
+
+            <div class="recipe-meta-box">
+                <div class="meta-card">
+                    <span>Peso Unidad Base</span>
+                    <strong id="metaWeight">-</strong>
+                </div>
+                <div class="meta-card">
+                    <span>Batch Original Calculado</span>
+                    <strong id="metaBatchBase">-</strong>
+                </div>
+                <div class="meta-card">
+                    <span>Costo Unitario Base</span>
+                    <strong id="metaCostUnit">-</strong>
+                </div>
+            </div>
+
+            <h3>Desglose de Ingredientes para Producción</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Descripción del Material</th>
+                        <th class="text-right">Cantidad Requerida</th>
+                        <th>Unidad</th>
+                        <th class="text-right">Porcentaje (%)</th>
+                        <th>Proveedor</th>
+                        <th class="text-right">Costo Estimado ($)</th>
+                    </tr>
+                </thead>
+                <tbody id="ingredientsTableBody">
+                    </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td>TOTALES RECALCULADOS</td>
+                        <td id="totalWeightSum" class="text-right">-</td>
+                        <td>gr</td>
+                        <td class="text-right">100%</td>
+                        <td>-</td>
+                        <td id="totalCostSum" class="text-right">-</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    let recipesDatabase = {};
+    let selectedRecipeName = null;
+
+    // Escucha la carga del archivo binario .xlsx
+    document.getElementById('excelFileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('statusOutput').innerText = "Leyendo libro de Excel nativo...";
+        
+        const reader = new FileReader();
+        reader.onerror = () => { alert("Error al leer el archivo"); };
+        reader.onload = function(event) {
+            const data = new Uint8Array(event.target.result);
+            // XLSX lee el archivo binario
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            // Buscar la pestaña correcta (o usar la primera si no la encuentra)
+            let sheetName = workbook.SheetNames.find(name => name.toLowerCase().includes("recetas panaderia")) || workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            
+            // Convertir la matriz de Excel a un arreglo bidimensional plano de JS
+            const lines = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+            
+            document.getElementById('statusOutput').innerText = `Pestaña "${sheetName}" cargada correctamente.`;
+            parseHorizontalExcel(lines);
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    // Procesa el mapa tridimensional de celdas horizontales paralelas de tu Excel
+    function parseHorizontalExcel(matrix) {
+        if (matrix.length < 5) return;
+        
+        recipesDatabase = {};
+        const firstRow = matrix[0];
+        let blocks = [];
+
+        // 1. Identificar las columnas de inicio de cada receta (ej. col 0: Foccacia, col 7: Pan michita...)
+        for (let c = 0; c < firstRow.length; c++) {
+            let cellVal = firstRow[c] ? String(firstRow[c]).trim() : "";
+            if (cellVal !== "" && !cellVal.toLowerCase().includes("unnamed")) {
+                blocks.push({ name: cellVal, startCol: c });
+            }
+        }
+
+        // 2. Extraer los datos por bloques verticales basados en las coordenadas de columnas encontradas
+        blocks.forEach((block) => {
+            let start = block.startCol;
+            
+            // Extraer metadatos basándonos exactamente en tu archivo cargado
+            let version = matrix[1] && matrix[1][start + 1] ? String(matrix[1][start + 1]).trim() : "V2.0";
+            let pesoUnidad = matrix[3] && matrix[3][start + 1] ? parseFloat(matrix[3][start + 1]) : 0;
+            let unidadesDeseadas = matrix[3] && matrix[3][start + 3] ? parseFloat(matrix[3][start + 3]) : 1;
+            let batchBase = matrix[4] && matrix[4][start + 1] ? parseFloat(matrix[4][start + 1]) : 0;
+
+            if (unidadesDeseadas <= 0) unidadesDeseadas = 1;
+
+            let ingredientes = [];
+
+            // El listado de materias primas comienza en la Fila Index 7 (Fila 8 de Excel)
+            for (let r = 7; r < matrix.length; r++) {
+                if (!matrix[r] || matrix[r].length <= start) continue;
+
+                let cantidad = parseFloat(matrix[r][start]);
+                let unidad = matrix[r][start + 1];
+                let descripcion = matrix[r][start + 2];
+                let porcentaje = matrix[r][start + 3];
+                let proveedor = matrix[r][start + 4];
+                let costo = parseFloat(matrix[r][start + 5]);
+
+                // Si no hay descripción ni cantidad válida, saltamos la fila
+                if (isNaN(cantidad) || !descripcion || String(descripcion).trim() === "") continue;
+
+                ingredientes.push({
+                    cantidadBase: cantidad / unidadesDeseadas, // Se atomiza a valor de 1 sola unidad
+                    unidad: unidad ? String(unidad).trim() : "gr",
+                    descripcion: String(descripcion).trim(),
+                    porcentaje: porcentaje ? String(porcentaje).trim() : "0%",
+                    proveedor: proveedor ? String(proveedor).trim() : "Gold Mills / Panasal",
+                    costoBase: isNaN(costo) ? 0 : (costo / unidadesDeseadas)
+                });
+            }
+
+            // Guardar en base de datos temporal de la App
+            recipesDatabase[block.name] = {
+                version: version,
+                pesoUnidad: pesoUnidad,
+                batchBase: batchBase,
+                unidadesDeseadasBase: unidadesDeseadas,
+                ingredientes: ingredientes
+            };
+        });
+
+        renderCatalog();
+    }
+
+    // Dibuja la lista lateral
+    function renderCatalog() {
+        const listContainer = document.getElementById('recipeList');
+        const countSpan = document.getElementById('recipeCount');
+        listContainer.innerHTML = "";
+
+        const keys = Object.keys(recipesDatabase);
+        countSpan.innerText = keys.length;
+
+        if (keys.length === 0) {
+            listContainer.innerHTML = '<p style="color: #ea2027; font-size: 13px;">No se procesaron recetas. Verifica el formato de la pestaña.</p>';
+            return;
+        }
+
+        keys.forEach(name => {
+            let div = document.createElement('div');
+            div.className = "recipe-item";
+            div.innerText = name;
+            div.onclick = function() {
+                document.querySelectorAll('.recipe-item').forEach(el => el.classList.remove('active'));
+                div.classList.add('active');
+                selectRecipe(name);
+            };
+            listContainer.appendChild(div);
+        });
+    }
+
+    function selectRecipe(name) {
+        selectedRecipeName = name;
+        document.getElementById('mainPanel').style.display = 'block';
+        // Inicializa el input dinámico con las unidades recomendadas por el Excel base
+        document.getElementById('productionUnits').value = recipesDatabase[name].unidadesDeseadasBase || 1;
+        calculateAndRender();
+    }
+
+    // Escucha en tiempo real si el usuario cambia el input numérico
+    document.getElementById('productionUnits').addEventListener('input', function() {
+        if (selectedRecipeName) calculateAndRender();
+    });
+
+    // Realiza las multiplicaciones de matrices y dibuja la interfaz en caliente
+    function calculateAndRender() {
+        const recipe = recipesDatabase[selectedRecipeName];
+        const targetUnits = parseFloat(document.getElementById('productionUnits').value) || 0;
+
+        document.getElementById('recipeTitle').innerText = selectedRecipeName;
+        document.getElementById('recipeVersion').innerText = "Versión: " + recipe.version;
+        document.getElementById('metaWeight').innerText = recipe.pesoUnidad + " g";
+        document.getElementById('metaBatchBase').innerText = (recipe.pesoUnidad * targetUnits).toFixed(0) + " g";
+
+        const tbody = document.getElementById('ingredientsTableBody');
+        tbody.innerHTML = "";
+
+        let accumWeight = 0;
+        let accumCost = 0;
+
+        recipe.ingredientes.forEach(ing => {
+            let dynamicQty = ing.cantidadBase * targetUnits;
+            let dynamicCost = ing.costoBase * targetUnits;
+
+            accumWeight += dynamicQty;
+            accumCost += dynamicCost;
+
+            // Arreglar formato de porcentaje numérico puro si viene como flotante de Excel (ej: 0.63 -> 63%)
+            let displayPerc = ing.porcentaje;
+            if (!isNaN(displayPerc) && displayPerc !== "") {
+                displayPerc = (parseFloat(displayPerc) * 100).toFixed(1) + "%";
+            }
+
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${ing.descripcion}</strong></td>
+                <td class="text-right" style="color: #2c3e50; font-weight: bold; font-size:15px;">${dynamicQty.toFixed(2)}</td>
+                <td>${ing.unidad}</td>
+                <td class="text-right" style="color: #7f8c8d;">${displayPerc}</td>
+                <td>${ing.proveedor}</td>
+                <td class="text-right" style="color: #2e7d32; font-weight: bold;">$${dynamicCost.toFixed(4)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Totales calculados dinámicos
+        document.getElementById('metaCostUnit').innerText = "$" + (accumCost / targetUnits).toFixed(4);
+        document.getElementById('totalWeightSum').innerText = accumWeight.toFixed(2);
+        document.getElementById('totalCostSum').innerText = "$" + accumCost.toFixed(4);
+    }
+</script>
+
+</body>
+</html>

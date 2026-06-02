@@ -1,0 +1,79 @@
+async function cargarVista(nombreVista) {
+
+  const app = document.getElementById("app");
+
+  const res = await fetch(`views/${nombreVista}.html`);
+  const html = await res.text();
+
+  app.innerHTML = html;
+
+  ejecutarPostCarga(nombreVista);
+}
+
+function ejecutarPostCarga(vista) {
+
+  if (vista === "inicio") {
+    renderListadoRecetas();
+  }
+
+  if (vista === "receta") {
+    cargarDatosReceta();
+  }
+
+  if (vista === "ingredientes") {
+    renderIngredientes();
+    cargarSelectMaterias();
+  }
+
+ if (vista === "resumen") {
+
+  receta.vioResumen = true;
+
+  actualizarEstadoReceta();
+  guardarRecetas();
+
+  renderResultados();
+}
+
+  if (vista === "pdf") {
+    renderVistaPDF();
+  }
+}
+
+function irInicio() {
+  cargarVista("inicio");
+}
+
+function irReceta() {
+  cargarVista("receta");
+}
+
+function irIngredientes() {
+
+  if (receta.ingredientes.length === 0) {
+    alert("La receta no tiene ingredientes.");
+    return;
+  }
+
+  cargarVista("ingredientes");
+}
+
+function irResumen() {
+
+  if (receta.ingredientes.length === 0) {
+    alert("La receta no tiene ingredientes. Agregá al menos uno para continuar.");
+    return;
+  }
+
+  cargarVista("resumen");
+}
+
+function irPDF() {
+
+  if (receta.ingredientes.length === 0) {
+    alert("No se puede generar el PDF sin ingredientes.");
+    return;
+  }
+
+  cargarVista("pdf");
+}

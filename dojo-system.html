@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Dojo System</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+#modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.75);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  z-index:9999;
+}
+
+.modal-box{
+  background:#111;           /* 🔥 fondo oscuro */
+  color:#f5f5f5;             /* 🔥 texto claro */
+  padding:20px;
+  max-width:700px;
+  width:92%;
+  max-height:90vh;
+  overflow:auto;
+  border-radius:10px;
+  box-shadow:0 0 20px rgba(0,0,0,.6);
+}
+
+.modal-box h2,
+.modal-box h3,
+.modal-box h4{
+  color:#fff;
+}
+
+.modal-box p,
+.modal-box li{
+  color:#ddd;
+}
+
+.modal-box hr{
+  border:1px solid #333;
+}
+
+.modal-box button{
+  background:#2563eb;
+  color:#fff;
+  border:none;
+  padding:8px 14px;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+.modal-box .close{
+  background:#991b1b;
+  float:right;
+}
+
+.photo{
+  max-width:120px;
+  border-radius:8px;
+  border:2px solid #444;
+}
+
+
+html,body{margin:0;padding:0;height:100%;background:#000;color:#fff;font-family:Arial}
+body{padding:20px;box-sizing:border-box}
+.box{border:2px solid red;border-radius:8px;padding:18px;background:#070707;margin-bottom:18px}
+button{background:#fff;color:#000;padding:8px 14px;border:none;border-radius:6px;font-weight:700;margin:4px;cursor:pointer}
+input,select,textarea{width:100%;padding:8px;margin:6px 0;background:#000;color:#fff;border:1px solid rgba(255,0,0,.6);border-radius:6px}
+#nav{width:220px;float:left;margin-right:18px}
+#content{overflow:auto}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid rgba(255,0,0,.2);padding:8px}
+.muted{color:rgba(255,255,255,.6)}
+img{max-width:140px;border:2px solid red;border-radius:6px}
+footer{text-align:center;color:rgba(255,255,255,.5);clear:both}
+</style>
+</head>
+
+<body>
+<div id="app"></div>
+
+<script>
+/* =====================
+   HELPERS & API
+===================== */
+const $=id=>document.getElementById(id)
+const uid=()=>crypto.randomUUID()
+
+let DB = {
+  config: { dojos: [], users: [], selectedDojo: '' },
+  students: []
+}
+
+// Load config from server
+const loadConfig = async () => {
+  try {
+    const res = await fetch('/api/config');
+    DB.config = await res.json();
+    return DB.config;
+  } catch (e) {
+    console.error('Error loading config:', e);
+    return DB.config;
+  }
+};
+
+// Load students from server
+const loadStudents = async (dojoId) => {
+  if (!dojoId) return [];
+  try {
+    const res = await fetch(`/api/dojos/${dojoId}/students`);
+    DB.students = await res.json();
+    return DB.students;
+  } catch (e) {
+    console.error('Error loading students:', e);
+    return [];
+  }
+};
+
+// Save student to server
+const saveStudentToServer = async (dojoId, student) => {
+  try {
+    const method = student.id && DB.students.find(s => s.id === student.id) ? 'PUT' : 'POST';
+    const url = method === 'PUT' 
+      ? `/api/dojos/${dojoId}/students/${student.id}`
+      : `/api/dojos/${dojoId}/students`;
+    
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(student)
+    });
+    return await res.json();
+  } catch (e) {
+    console.error('Error saving student:', e);
+  }
+};
+
+// Delete student from server
+const deleteStudentFromServer = async (dojoId, studentId) => {
+  try {
+    const res = await fetch(`/api/dojos/${dojoId}/students/${studentId}`, { method: 'DELETE' });
+    return await res.json();
+  } catch (e) {
+    console.error('Error deleting student:', e);
+  }
+};
+
+// Save config to server
+const saveConfigToServer = async () => {
+  try {
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(DB.config)
+    });
+    return await res.json();
+  } catch (e) {
+    console.error('Error saving config:', e);
+  }
+};
+
+// Create dojo on server
+const createDojoOnServer = async (name, logo) => {
+  try {
+    const res = await fetch('/api/dojos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, logo })
+    });
+    return await res.json();
+  } catch (e) {
+    console.error('Error creating dojo:', e);
+  }
+};
+
+// Delete dojo on server
+const deleteDojoOnServer = async (dojoId) => {
+  try {
+    const res = await fetch(`/api/dojos/${dojoId}`, { method: 'DELETE' });
+    return await res.json();
+  } catch (e) {
+    console.error('Error deleting dojo:', e);
+  }
+};
+
+
+/* =====================
+   LOGIN
+===================== */
+function renderLogin(){
+$('app').innerHTML=`
+<div class="box" style="max-width:480px;margin:40px auto">
+<h2>Iniciar sesión</h2>
+<input id="u" placeholder="Usuario">
+<input id="p" type="password" placeholder="Contraseña">
+<button onclick="login()">Entrar</button>
+<p class="muted">Sistema local · sin servidores</p>
+</div>`
+}
+
+function login(){
+const u=$('u').value,p=$('p').value
+const user = DB.config.users.find(x=>x.user===u&&x.pass===p)
+if(user){
+ sessionStorage.setItem('session','1')
+ sessionStorage.setItem('user', u)
+ sessionStorage.setItem('userRole', user.role || 'user')
+ renderHome()
+}else alert('Credenciales incorrectas')
+}
+
+/* =====================
+   HOME
+===================== */
+async function renderHome(){
+  const selectedDojoId = DB.config.selectedDojo || (DB.config.dojos && DB.config.dojos[0] && DB.config.dojos[0].id) || '';
+  const selectedDojo = DB.config.dojos.find(d => d.id === selectedDojoId) || DB.config.dojos[0] || { name: 'Mi Dojo', logo: '' };
+  
+  $('app').innerHTML=`
+<div id="nav" class="box">
+<h3>${selectedDojo.name}</h3>
+${selectedDojo.logo?`<img src="${selectedDojo.logo}">`:''}
+<button onclick="renderStudents()">Estudiantes</button>
+<button onclick="openCurriculum()">Currículum</button>
+<button onclick="renderAttendance()">📅 Asistencia</button>
+<button onclick="renderPayments()">💵 Pagos</button>
+<button onclick="renderReports()">Reportes</button>
+<button onclick="renderExams()">Exámenes</button>
+<button onclick="renderAppearance()">Apariencia</button>
+<button onclick="logout()">Salir</button>
+</div>
+<div id="content"></div>`
+
+  await renderStudents()
+}
+
+function logout(){sessionStorage.clear();renderLogin()}
+
+/* =====================
+   STUDENTS
+===================== */
+async function renderStudents(){
+  const selectedDojoId = DB.config.selectedDojo || (DB.config.dojos && DB.config.dojos[0] && DB.config.dojos[0].id) || '';
+  await loadStudents(selectedDojoId);
+  
+$('content').innerHTML=`
+<div class="box">
+<h2>Estudiantes</h2>
+<button onclick="studentForm()">➕ Agregar</button>
+<table>
+<tr><th>Alumno</th><th>Acciones</th></tr>
+${DB.students.map(s=>`
+<tr>
+<td>${s.name}</td>
+<td>
+<button onclick="viewStudent('${s.id}')">Ver</button>
+<button onclick="studentForm('${s.id}')">Editar</button>
+<button onclick="delStudent('${s.id}')">Eliminar</button>
+</td>
+</tr>`).join('')}
+</table>
+</div>`
+}
+
+async function delStudent(id){
+if(confirm('Eliminar alumno?')){
+ const selectedDojoId = DB.config.selectedDojo || (DB.config.dojos && DB.config.dojos[0] && DB.config.dojos[0].id) || '';
+ await deleteStudentFromServer(selectedDojoId, id)
+ DB.students=DB.students.filter(s=>s.id!==id)
+ await renderStudents()
+}
+}
+
+/* =====================
+   STUDENTS FORM
+===================== */
+async function studentForm(id=null){
+  const selectedDojoId = DB.config.selectedDojo || (DB.config.dojos && DB.config.dojos[0] && DB.config.dojos[0].id) || '';
+  
+  const s = id
+    ? DB.students.find(st=>st.id===id)
+    : {
+        id: crypto.randomUUID(),
+        name:'',
+        dateOfBirth:'',
+        age:0,
+        gender:'',
+        nationality:'',
+        idNumber:'',
+        phone:'',
+        phoneSecondary:'',
+        email:'',
+        address:'',
+        emergencyContact:'',
+        emergencyRelation:'',
+        emergencyPhone:'',
+        allergies:'',
+        medicalConditions:'',
+        medicalAuthorization:'',
+        registrationDate:'',
+        sensei:'',
+        belt:'Blanco',
+        style:'Shotokan',
+        schedule:'',
+        photo:'',
+        representantSignature:'',
+        responsibilityAgreement:'',
+        dojoId: selectedDojoId,
+        active:true,
+        attendance:[],
+        payments:[],
+        exams:[]
+      }
+
+  const calculateAge = (dob) => {
+    if(!dob) return 0;
+    const today = new Date();
+    const birth = new Date(dob);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  };
+
+  $('content').innerHTML=`
+  <div class="box" style="max-height:90vh;overflow-y:auto">
+    <h2>${id?'Editar':'Nuevo'} Estudiante</h2>
+
+    <h3>📋 Datos Personales</h3>
+    <input placeholder="Nombre completo" value="${s.name}" oninput="sTmp.name=this.value">
+    <label>Fecha de nacimiento</label>
+    <input type="date" value="${s.dateOfBirth}" oninput="sTmp.dateOfBirth=this.value; sTmp.age=calculateAge(this.value); $('age').value=sTmp.age;">
+    <input id="age" type="number" placeholder="Edad (automática)" value="${s.age}" readonly>
+    <select value="${s.gender}" onchange="sTmp.gender=this.value">
+      <option value="">Género</option>
+      <option value="Masculino">Masculino</option>
+      <option value="Femenino">Femenino</option>
+      <option value="Otro">Otro</option>
+    </select>
+    <input placeholder="Nacionalidad" value="${s.nationality}" oninput="sTmp.nationality=this.value">
+    <input placeholder="Número de identificación" value="${s.idNumber}" oninput="sTmp.idNumber=this.value">
+
+    <h3>📞 Información de Contacto</h3>
+    <input placeholder="Teléfono principal" value="${s.phone}" oninput="sTmp.phone=this.value">
+    <input placeholder="Teléfono secundario" value="${s.phoneSecondary}" oninput="sTmp.phoneSecondary=this.value">
+    <input placeholder="Correo electrónico" value="${s.email}" oninput="sTmp.email=this.value">
+    <input placeholder="Dirección" value="${s.address}" oninput="sTmp.address=this.value">
+
+    <h3>🆘 Datos de Emergencia</h3>
+    <input placeholder="Contacto de emergencia" value="${s.emergencyContact}" oninput="sTmp.emergencyContact=this.value">
+    <select value="${s.emergencyRelation}" onchange="sTmp.emergencyRelation=this.value">
+      <option value="">Relación</option>
+      <option value="Padre">Padre</option>
+      <option value="Madre">Madre</option>
+      <option value="Hermano">Hermano</option>
+      <option value="Tío">Tío</option>
+      <option value="Abuelo">Abuelo</option>
+      <option value="Otro">Otro</option>
+    </select>
+    <input placeholder="Teléfono de emergencia" value="${s.emergencyPhone}" oninput="sTmp.emergencyPhone=this.value">
+
+    <h3>⚕️ Información Médica</h3>
+    <textarea placeholder="Alergias" oninput="sTmp.allergies=this.value">${s.allergies}</textarea>
+    <textarea placeholder="Condiciones médicas" oninput="sTmp.medicalConditions=this.value">${s.medicalConditions}</textarea>
+    <label>Autorización médica (PDF)</label>
+    <input type="file" id="medicalAuth" accept=".pdf" onchange="handlePdfUpload('medicalAuth', 'medicalAuthorization')">
+    ${s.medicalAuthorization ? `<p>✅ PDF cargado</p>` : ''}
+
+    <h3>🥋 Información del Dojo</h3>
+    <label>Fecha de inscripción</label>
+    <input type="date" value="${s.registrationDate}" oninput="sTmp.registrationDate=this.value">
+    <input placeholder="Sensei asignado" value="${s.sensei}" oninput="sTmp.sensei=this.value">
+    
+    <label>Cinturón</label>
+    <select value="${s.belt}" onchange="sTmp.belt=this.value">
+      <option value="Blanco">⚪ Blanco</option>
+      <option value="Amarillo">🟡 Amarillo</option>
+      <option value="Naranja">🟠 Naranja</option>
+      <option value="Verde">🟢 Verde</option>
+      <option value="Azul">🔵 Azul</option>
+      <option value="Morado">🟣 Morado</option>
+      <option value="Marrón">🟤 Marrón</option>
+      <option value="Negro">⚫ Negro</option>
+    </select>
+
+    <label>Estilo</label>
+    <select value="${s.style}" onchange="sTmp.style=this.value">
+      <option value="Shotokan">Shotokan</option>
+      <option value="Goju Ryu">Goju Ryu</option>
+      <option value="Kyokushin">Kyokushin</option>
+      <option value="Wado Ryu">Wado Ryu</option>
+      <option value="Otro">Otro</option>
+    </select>
+
+    <input placeholder="Horario/grupo asignado" value="${s.schedule}" oninput="sTmp.schedule=this.value">
+
+    <h3>📄 Documentos</h3>
+    <label>Foto del alumno</label>
+    <input type="file" id="photoFile" accept="image/*" onchange="handlePhotoUpload()">
+    ${s.photo ? `<img src="${s.photo}" class="photo" style="max-width:120px;border-radius:8px;margin:8px 0;">` : ''}
+    
+    <label>Firma digital del representante</label>
+    <input type="file" id="signatureFile" accept="image/*" onchange="handleSignatureUpload()">
+    ${s.representantSignature ? `<p>✅ Firma cargada</p>` : ''}
+
+    <label>Acuerdo de responsabilidad (PDF)</label>
+    <input type="file" id="agreementFile" accept=".pdf" onchange="handlePdfUpload('agreementFile', 'responsibilityAgreement')">
+    ${s.responsibilityAgreement ? `<p>✅ PDF cargado</p>` : ''}
+
+    <h3>⚙️ Configuración</h3>
+    <label>Dojo</label>
+    ${(() => {
+      const user = sessionStorage.getItem('user')
+      const isAdmin = user==='admin'
+      if(isAdmin){
+        return `<select id="s_dojo" onchange="sTmp.dojoId=this.value">${DB.config.dojos.map(d=>`<option value="${d.id}" ${d.id===s.dojoId?'selected':''}>${d.name}</option>`).join('')}</select>`
+      }
+      const defaultDojo = s.dojoId || selectedDojoId
+      return `<select id="s_dojo" onchange="sTmp.dojoId=this.value" disabled><option value="${defaultDojo}">${(DB.config.dojos.find(d=>d.id===defaultDojo)||{name:'-'}).name}</option></select>`
+    })()}
+
+    <label>
+      <input type="checkbox" ${s.active?'checked':''} onchange="sTmp.active=this.checked"> Activo
+    </label>
+
+    <hr>
+    <button onclick="saveStudent()">💾 Guardar</button>
+    <button onclick="renderStudents()">Cancelar</button>
+  </div>
+  `
+
+  window.sTmp = {...s}
+  window.calculateAge = calculateAge
+}
+
+function handlePhotoUpload(){
+  const file = $('photoFile').files[0]
+  if(!file) return
+  const reader = new FileReader()
+  reader.onload = e => {
+    sTmp.photo = e.target.result
+    const img = document.createElement('img')
+    img.src = sTmp.photo
+    img.className = 'photo'
+    img.style.cssText = 'max-width:120px;border-radius:8px;margin:8px 0;'
+    $('photoFile').parentElement.appendChild(img)
+  }
+  reader.readAsDataURL(file)
+}
+
+function handleSignatureUpload(){
+  const file = $('signatureFile').files[0]
+  if(!file) return
+  const reader = new FileReader()
+  reader.onload = e => {
+    sTmp.representantSignature = e.target.result
+    const msg = document.createElement('p')
+    msg.textContent = '✅ Firma cargada'
+    $('signatureFile').parentElement.appendChild(msg)
+  }
+  reader.readAsDataURL(file)
+}
+
+function handlePdfUpload(inputId, fieldName){
+  const file = $(inputId).files[0]
+  if(!file) return
+  const reader = new FileReader()
+  reader.onload = e => {
+    sTmp[fieldName] = e.target.result
+    const msg = document.createElement('p')
+    msg.textContent = '✅ PDF cargado'
+    $(inputId).parentElement.appendChild(msg)
+  }
+  reader.readAsDataURL(file)
+}
+
+async function saveStudent(){
+  const selectedDojoId = DB.config.selectedDojo || (DB.config.dojos && DB.config.dojos[0] && DB.config.dojos[0].id) || '';
+  
+  if(!sTmp.dojoId) sTmp.dojoId = selectedDojoId
+  
+  const idx = DB.students.findIndex(s=>s.id===sTmp.id)
+  if(idx>=0){
+    DB.students[idx]=sTmp
+  }else{
+    DB.students.push(sTmp)
+  }
+  
+  await saveStudentToServer(selectedDojoId, sTmp)
+  await renderStudents()
+}
+
+function openCurriculum(id){
+  // If no id passed, open list of students to pick
+  if(!id){
+    closeModal()
+    const modal = document.createElement('div')
+    modal.id = 'modal'
+    modal.innerHTML = `
+    <div class="modal-box">
+      <button class="close" onclick="closeModal()">✖</button>
+      <h2>Currículum - Lista de Estudiantes</h2>
+      <ul>
+        ${DB.students.map(st=>`<li><button onclick="openCurriculum('${st.id}')">${st.name} (${(DB.dojos.find(d=>d.id===st.dojoId)||{name:'-' }).name})</button></li>`).join('')}
+      </ul>
+      <button onclick="closeModal()">Cerrar</button>
+    </div>
+    `
+    document.body.appendChild(modal)
+    return
+  }
+
+  const s = DB.students.find(st => st.id === id)
+  if(!s) return
+
+  // Read-only modal with full details and PDF download
+  closeModal()
+  const modal = document.createElement('div')
+  modal.id = 'modal'
+  modal.innerHTML = `
+  <div class="modal-box">
+    <button class="close" onclick="closeModal()">✖</button>
+    <h2>Currículum - ${s.name}</h2>
+    ${s.photo?`<img src="${s.photo}" class="photo">`:''}
+    <p><strong>Alumno:</strong> ${s.name}</p>
+    <p><strong>Representante:</strong> ${s.representative}</p>
+    <p><strong>Teléfono:</strong> ${s.phone}</p>
+    <p><strong>Email:</strong> ${s.email}</p>
+    <p><strong>Dirección:</strong> ${s.address}</p>
+    <p><strong>Inicio:</strong> ${s.startedAt}</p>
+    <p><strong>Días:</strong> ${s.days}</p>
+    <p><strong>Horario:</strong> ${s.schedule}</p>
+    <p><strong>Cinturón:</strong> ${getBeltEmoji(s.belt)} ${s.belt}</p>
+    <p><strong>Dojo:</strong> ${(DB.dojos.find(d=>d.id===s.dojoId)||{name:'-' }).name}</p>
+    <hr>
+    <h4>Historial Deportivo</h4>
+    <p>${s.history || 'No registrado'}</p>
+    <hr>
+    <h4>Exámenes</h4>
+    <ul>
+      ${(s.exams||[]).map(e=>`<li>${getBeltEmoji(e.belt)} ${e.belt} - ${e.date} - ${e.status}</li>`).join('') || '<li>Sin exámenes registrados</li>'}
+    </ul>
+    <button onclick="downloadStudentPDF('${s.id}')">📥 Descargar PDF</button>
+    <button onclick="closeModal()">Cerrar</button>
+  </div>
+  `
+  document.body.appendChild(modal)
+}
+function closeModal(){
+  const modal = document.getElementById('modal')
+  if(modal) modal.remove()
+}
+
+function downloadStudentPDF(id){
+  const s = DB.students.find(st=>st.id===id)
+  if(!s) return
+  const html = `
+    <html><head><meta charset="utf-8"><title>Currículum - ${s.name}</title></head><body>
+    <h1>${s.name}</h1>
+    ${s.photo?`<img src="${s.photo}" style="max-width:140px">`:''}
+    <p><strong>Representante:</strong> ${s.representative}</p>
+    <p><strong>Contacto:</strong> ${s.phone} | ${s.email}</p>
+    <p><strong>Dirección:</strong> ${s.address}</p>
+    <p><strong>Inicio:</strong> ${s.startedAt}</p>
+    <p><strong>Días:</strong> ${s.days}</p>
+    <p><strong>Horario:</strong> ${s.schedule}</p>
+    <p><strong>Cinturón:</strong> ${s.belt}</p>
+    <h3>Historial</h3>
+    <p>${s.history || ''}</p>
+    <h3>Exámenes</h3>
+    <ul>${(s.exams||[]).map(e=>`<li>${e.belt} - ${e.date} - ${e.status}</li>`).join('')}</ul>
+    </body></html>`
+  const w = window.open('','_blank')
+  w.document.write(html)
+  w.document.close()
+  w.print()
+  // do not close to allow save as PDF
+}
+
+
+
+/* =====================
+   STUDENT PROFILE
+===================== */
+function viewStudent(id){
+  const s = DB.students.find(st=>st.id===id)
+  if(!s) return alert('Estudiante no encontrado')
+
+  $('content').innerHTML=`
+  <div class="box" style="max-height:90vh;overflow-y:auto">
+    <h2>👤 Perfil del Estudiante</h2>
+
+    <h3>📋 Datos Personales</h3>
+    <p><strong>Nombre:</strong> ${s.name}</p>
+    <p><strong>Fecha de nacimiento:</strong> ${s.dateOfBirth || 'No registrado'}</p>
+    <p><strong>Edad:</strong> ${s.age || '-'} años</p>
+    <p><strong>Género:</strong> ${s.gender || '-'}</p>
+    <p><strong>Nacionalidad:</strong> ${s.nationality || '-'}</p>
+    <p><strong>ID/Cédula:</strong> ${s.idNumber || '-'}</p>
+
+    <h3>📞 Contacto</h3>
+    <p><strong>Teléfono:</strong> ${s.phone || '-'}</p>
+    <p><strong>Teléfono secundario:</strong> ${s.phoneSecondary || '-'}</p>
+    <p><strong>Email:</strong> ${s.email || '-'}</p>
+    <p><strong>Dirección:</strong> ${s.address || '-'}</p>
+
+    <h3>🆘 Emergencia</h3>
+    <p><strong>Contacto:</strong> ${s.emergencyContact || '-'}</p>
+    <p><strong>Relación:</strong> ${s.emergencyRelation || '-'}</p>
+    <p><strong>Teléfono:</strong> ${s.emergencyPhone || '-'}</p>
+
+    <h3>⚕️ Médica</h3>
+    <p><strong>Alergias:</strong> ${s.allergies || 'Ninguna'}</p>
+    <p><strong>Condiciones:</strong> ${s.medicalConditions || 'Ninguna'}</p>
+    <p><strong>Autorización:</strong> ${s.medicalAuthorization ? '✅ Cargada' : '❌ No cargada'}</p>
+
+    <h3>🥋 Dojo</h3>
+    <p><strong>Inscripción:</strong> ${s.registrationDate || '-'}</p>
+    <p><strong>Sensei:</strong> ${s.sensei || '-'}</p>
+    <p><strong>Cinturón:</strong> ${getBeltEmoji(s.belt)} ${s.belt}</p>
+    <p><strong>Estilo:</strong> ${s.style || 'Shotokan'}</p>
+    <p><strong>Horario:</strong> ${s.schedule || '-'}</p>
+
+    <h3>📄 Documentos</h3>
+    <p><strong>Foto:</strong> ${s.photo ? '✅ Cargada' : '❌ No cargada'}</p>
+    <p><strong>Firma:</strong> ${s.representantSignature ? '✅ Cargada' : '❌ No cargada'}</p>
+    <p><strong>Acuerdo:</strong> ${s.responsibilityAgreement ? '✅ Cargado' : '❌ No cargado'}</p>
+
+    <p><strong>Estado:</strong> ${s.active?'🟢 Activo':'🔴 Inactivo'}</p>
+
+    <hr>
+
+    <button onclick="openCurriculum('${s.id}')">📋 Currículum</button>
+    <button onclick="renderAttendance('${s.id}')">📅 Asistencia</button>
+    <button onclick="renderPayments('${s.id}')">💵 Pagos</button>
+    <button onclick="renderStudents()">⬅ Volver</button>
+  </div>
+  `
+}
+
+/* =====================
+   ATTENDANCE
+===================== */
+function renderAttendance(){
+  const today = new Date().toISOString().split('T')[0]
+
+  $('content').innerHTML=`
+  <div class="box">
+    <h2>📅 Asistencia del Día</h2>
+
+    <label>Fecha</label>
+    <input type="date" id="att_date" value="${today}">
+
+    <label>Hora de práctica</label>
+    <input type="time" id="att_time">
+
+    <table>
+      <tr>
+        <th>Asiste</th>
+        <th>Alumno</th>
+      </tr>
+      ${DB.students.map(s=>`
+        <tr>
+          <td>
+            <input type="checkbox" class="att_check" data-id="${s.id}">
+          </td>
+          <td>${s.name}</td>
+        </tr>
+      `).join('')}
+    </table>
+
+    <button onclick="saveAttendance()">💾 Guardar asistencia</button>
+    <button onclick="renderStudents()">⬅ Volver</button>
+  </div>
+  `
+}
+function saveAttendance(){
+  const date = $('att_date').value
+  const time = $('att_time').value
+  if(!date || !time) return alert('Selecciona fecha y hora')
+
+  document.querySelectorAll('.att_check:checked').forEach(chk=>{
+    const s = DB.students.find(st=>st.id===chk.dataset.id)
+    if(!s) return
+
+    s.attendance = s.attendance || []
+
+    const exists = s.attendance.find(a=>a.date===date)
+    if(!exists){
+      s.attendance.push({date,time})
+    }
+  })
+
+  saveDB()
+  alert('Asistencia guardada')
+  renderAttendance()
+}
+/* =====================
+   PAYMENTS
+===================== */
+function renderPayments(){
+  $('content').innerHTML = `
+    <div class="box">
+      <h2>💵 Pagos</h2>
+
+      <table>
+        <tr>
+          <th>Alumno</th>
+          <th>Acción</th>
+        </tr>
+        ${DB.students.map(s=>`
+          <tr>
+            <td>${s.name}</td>
+            <td>
+              <button onclick="openPaymentsModal('${s.id}')">Pagos</button>
+            </td>
+          </tr>
+        `).join('')}
+      </table>
+
+      <button onclick="openAllPaymentsModal()">📊 Pagos por mes</button>
+      <button onclick="renderStudents()">⬅ Volver</button>
+    </div>
+  `
+}
+
+
+function openAllPaymentsModal(){
+  closeModal()
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="modal" class="modal">
+      <div class="modal-box">
+        <h3>📊 Pagos generales por mes</h3>
+
+        <label>Mes</label>
+        <select id="global_month">
+          <option value="">Seleccione mes</option>
+          ${getAvailableMonths().map(m=>`
+            <option value="${m}">${m}</option>
+          `).join('')}
+        </select>
+
+        <button onclick="filterAllPayments()">🔍 Buscar</button>
+
+        <div id="all_payments_list">
+          <p>Seleccione un mes y presione Buscar</p>
+        </div>
+
+        <button onclick="closeModal()">Cerrar</button>
+      </div>
+    </div>
+  `)
+}
+function getAvailableMonths(){
+  const months = new Set()
+
+  DB.students.forEach(s=>{
+    (s.payments || []).forEach(p=>{
+      if(p.date) months.add(p.date.slice(0,7))
+    })
+  })
+
+  return [...months].sort().reverse()
+}
+function renderPaymentsList(list){
+  if(!list.length) return `<p>No hay pagos registrados</p>`
+
+  return `
+    <table>
+      <tr>
+        <th>Fecha</th>
+        <th>Monto</th>
+        <th>Método</th>
+      </tr>
+      ${list.map(p=>`
+        <tr>
+          <td>${p.date}</td>
+          <td>$${p.m}</td>
+          <td>${p.me}</td>
+        </tr>
+      `).join('')}
+    </table>
+  `
+}
+function addPayment(id){
+  const s = DB.students.find(st=>st.id===id)
+  if(!s) return
+
+  const amount = $('pay_amount').value
+  const method = $('pay_method').value
+  const date   = $('pay_date').value
+
+  if(!amount || !date){
+    alert('Complete monto y fecha')
+    return
+  }
+
+  s.payments = s.payments || []
+  s.payments.push({ m:amount, me:method, date })
+
+  saveDB()
+
+  // limpiar formulario
+  $('pay_amount').value = ''
+  $('pay_method').value = 'Efectivo'
+
+  // 🔹 LIMPIAR FILTRO
+  $('filter_month').value = ''
+
+  // 🔹 LIMPIAR LISTA Y MOSTRAR TODO
+  $('payments_list').innerHTML = renderPaymentsList(s.payments)
+}
+
+function openPaymentsModal(id){
+  closeModal()
+
+  const s = DB.students.find(st=>st.id===id)
+  if(!s) return
+
+  s.payments = s.payments || []
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="modal" class="modal">
+      <div class="modal-box">
+        <h3>Pagos - ${s.name}</h3>
+
+        <label>Filtrar por mes</label>
+        <select id="filter_month">
+          <option value="">Todos</option>
+          ${getAvailableMonths().map(m=>`
+            <option value="${m}">${m}</option>
+          `).join('')}
+        </select>
+        <button onclick="filterPayments('${id}')">🔍 Buscar</button>
+
+        <div id="payments_list"></div>
+
+        <hr>
+
+        <h4>Agregar pago</h4>
+        <input id="pay_amount" type="number" placeholder="Monto">
+        <select id="pay_method">
+          <option>Efectivo</option>
+          <option>Yappy</option>
+          <option>ACH</option>
+        </select>
+        <input type="date" id="pay_date" value="${new Date().toISOString().split('T')[0]}">
+
+        <button onclick="addPayment('${id}')">💾 Guardar</button>
+        <button onclick="closeModal()">Cerrar</button>
+      </div>
+    </div>
+  `)
+
+  filterPayments(id) // 👈 render inicial
+}
+function filterPayments(id){
+  const s = DB.students.find(st=>st.id===id)
+  if(!s) return
+
+  const month = $('filter_month').value
+  const container = $('payments_list')
+
+  // limpiar vista
+  container.innerHTML = '<p>Buscando pagos...</p>'
+
+  const list = month
+    ? s.payments.filter(p => p.date.startsWith(month))
+    : s.payments
+
+  // render final
+  container.innerHTML = renderPaymentsList(list)
+  
+  if(month && !list.length){
+  container.innerHTML = `<p>No hay pagos registrados para ${month}</p>`
+  return
+}
+}
+function filterAllPayments(){
+  const month = $('global_month').value
+  const container = $('all_payments_list')
+
+  // limpiar vista primero
+  container.innerHTML = '<p>Buscando pagos...</p>'
+
+  if(!month){
+    container.innerHTML = '<p>Seleccione un mes</p>'
+    return
+  }
+
+  const list = DB.students.flatMap(s =>
+    (s.payments || [])
+      .filter(p => p.date && p.date.startsWith(month))
+      .map(p => ({
+        alumno: s.name,
+        fecha: p.date,
+        monto: p.m,
+        metodo: p.me
+      }))
+  )
+
+  if(!list.length){
+    container.innerHTML = `<p>No hay pagos registrados en ${month}</p>`
+    return
+  }
+
+  container.innerHTML = `
+    <table>
+      <tr>
+        <th>Alumno</th>
+        <th>Fecha</th>
+        <th>Monto</th>
+        <th>Método</th>
+      </tr>
+      ${list.map(p=>`
+        <tr>
+          <td>${p.alumno}</td>
+          <td>${p.fecha}</td>
+          <td>$${p.monto}</td>
+          <td>${p.metodo}</td>
+        </tr>
+      `).join('')}
+    </table>
+  `
+}
+
+function closeModal(){
+  const m = document.getElementById('modal')
+  if(m) m.remove()
+}
+
+
+/* =====================
+   EXAMS
+===================== */
+function renderExams(){
+$('content').innerHTML=`
+<div class="box">
+<h2>🥋 Exámenes</h2>
+<table>
+<tr><th>Alumno</th><th>Cinturón</th><th>Exámenes</th><th>Acción</th></tr>
+${DB.students.map(s=>`
+<tr>
+<td>${s.name}</td>
+<td>${getBeltEmoji(s.belt)} ${s.belt}</td>
+<td>${(s.exams||[]).length}</td>
+<td><button onclick="openExamsModal('${s.id}')">Ver/Agregar</button></td>
+</tr>
+`).join('')}
+</table>
+</div>`
+}
+function getBeltEmoji(belt){
+const belts={'Blanco':'⚪','Amarillo':'🟡','Naranja':'🟠','Verde':'🟢','Azul':'🔵','Morado':'🟣','Marrón':'🟤','Negro':'⚫'}
+return belts[belt]||'⚪'
+}
+function openExamsModal(id){
+const s=DB.students.find(st=>st.id===id)
+if(!s)return
+closeModal()
+document.body.insertAdjacentHTML('beforeend',`
+<div id="modal" class="modal">
+<div class="modal-box">
+<button class="close" onclick="closeModal()">✖</button>
+<h3>Exámenes - ${s.name}</h3>
+<p><strong>Cinturón actual:</strong> ${getBeltEmoji(s.belt)} ${s.belt}</p>
+<div id="exams_list">${renderExamsList(s.exams||[])}</div>
+<hr>
+<h4>Agregar examen</h4>
+<select id="exam_belt">
+<option value="Amarillo">🟡 Amarillo</option>
+<option value="Naranja">🟠 Naranja</option>
+<option value="Verde">🟢 Verde</option>
+<option value="Azul">🔵 Azul</option>
+<option value="Morado">🟣 Morado</option>
+<option value="Marrón">🟤 Marrón</option>
+<option value="Negro">⚫ Negro</option>
+</select>
+<input type="date" id="exam_date" value="${new Date().toISOString().split('T')[0]}">
+<select id="exam_status">
+<option value="Pendiente">Pendiente</option>
+<option value="Aprobado">Aprobado</option>
+<option value="Reprobado">Reprobado</option>
+</select>
+<button onclick="addExam('${id}')">💾 Guardar</button>
+<button onclick="closeModal()">Cerrar</button>
+</div>
+</div>
+`)
+}
+function renderExamsList(exams){
+if(!exams.length)return'<p>Sin exámenes registrados</p>'
+return`
+<table>
+<tr><th>Cinturón</th><th>Fecha</th><th>Estado</th><th>Acción</th></tr>
+${exams.map((e,i)=>`
+<tr>
+<td>${getBeltEmoji(e.belt)} ${e.belt}</td>
+<td>${e.date}</td>
+<td>${e.status}</td>
+<td><button onclick="delExam('${exams[i].id}')">Eliminar</button></td>
+</tr>
+`).join('')}
+</table>
+`}
+function addExam(id){
+const s=DB.students.find(st=>st.id===id)
+if(!s)return
+const belt=$('exam_belt').value
+const date=$('exam_date').value
+const status=$('exam_status').value
+if(!belt||!date){alert('Complete datos');return}
+s.exams=s.exams||[]
+s.exams.push({id:uid(),belt,date,status})
+saveDB()
+closeModal()
+renderExams()
+}
+function delExam(id){
+if(!confirm('Eliminar examen?'))return
+DB.students.forEach(s=>{
+if(s.exams)s.exams=s.exams.filter(e=>e.id!==id)
+})
+saveDB()
+renderExams()
+}
+
+/* =====================
+   REPORTS
+===================== */
+function renderReports(){
+  $('content').innerHTML = `
+    <div class="box">
+      <h2>📊 Reportes</h2>
+
+      <button onclick="renderPaymentReports()">💵 Reportes de pagos</button>
+      <button onclick="renderAttendanceReports()">🥋 Reportes de asistencia</button>
+      <button onclick="renderStudentsReports()">👥 Reporte de alumnos</button>
+
+      <hr>
+      <button onclick="renderStudents()">⬅ Volver</button>
+    </div>
+  `
+}
+function renderPaymentReports(){
+  $('content').innerHTML = `
+    <div class="box">
+      <h2>💵 Reportes de pagos</h2>
+
+      <label>Alumno</label>
+      <select id="pay_student">
+        <option value="">Todos</option>
+        ${DB.students.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}
+      </select>
+
+      <label>Mes</label>
+      <select id="pay_month">
+        <option value="">Todos</option>
+        ${getAvailableMonths().map(m=>`<option value="${m}">${m}</option>`).join('')}
+      </select>
+
+      <button onclick="generatePaymentReport()">📄 Generar reporte</button>
+
+      <div id="payment_report_result"></div>
+
+      <button onclick="renderReports()">⬅ Volver</button>
+    </div>
+  `
+}
+function generatePaymentReport(){
+  const studentId = $('pay_student').value
+  const month = $('pay_month').value
+  const box = $('payment_report_result')
+
+  let list = DB.students.flatMap(s =>
+    (s.payments || []).map(p => ({
+      studentId: s.id,
+      student: s.name,
+      ...p
+    }))
+  )
+
+  if(studentId)
+    list = list.filter(p=>p.studentId === studentId)
+
+  if(month)
+    list = list.filter(p=>p.date.startsWith(month))
+
+  if(!list.length){
+    box.innerHTML = '<p>No hay pagos para este filtro</p>'
+    return
+  }
+
+  const total = list.reduce((a,p)=>a+Number(p.m),0)
+
+  box.innerHTML = `
+    <p><strong>Total:</strong> $${total}</p>
+    <table>
+      <tr>
+        <th>Alumno</th>
+        <th>Fecha</th>
+        <th>Monto</th>
+        <th>Método</th>
+      </tr>
+      ${list.map(p=>`
+        <tr>
+          <td>${p.student}</td>
+          <td>${p.date}</td>
+          <td>$${p.m}</td>
+          <td>${p.me}</td>
+        </tr>
+      `).join('')}
+    </table>
+  `
+}
+function renderAttendanceReports(){
+  $('content').innerHTML = `
+    <div class="box">
+      <h2>🥋 Reportes de asistencia</h2>
+
+      <label>Alumno</label>
+      <select id="att_student">
+        <option value="">Todos</option>
+        ${DB.students.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}
+      </select>
+
+      <button onclick="generateAttendanceReport()">📄 Generar reporte</button>
+
+      <div id="attendance_report_result"></div>
+
+      <button onclick="renderReports()">⬅ Volver</button>
+    </div>
+  `
+}
+function generateAttendanceReport(){
+  const id = $('att_student').value
+  const box = $('attendance_report_result')
+
+  let list = DB.students
+
+  if(id)
+    list = list.filter(s=>s.id === id)
+
+  if(!list.length){
+    box.innerHTML = '<p>No hay datos</p>'
+    return
+  }
+
+  box.innerHTML = `
+    <table>
+      <tr>
+        <th>Alumno</th>
+        <th>Asistencias</th>
+      </tr>
+      ${list.map(s=>`
+        <tr>
+          <td>${s.name}</td>
+          <td>${(s.attendance || []).length}</td>
+        </tr>
+      `).join('')}
+    </table>
+  `
+}
+function renderStudentsReports(){
+  const belts = [...new Set(DB.students.map(s=>s.belt).filter(Boolean))]
+
+  $('content').innerHTML = `
+    <div class="box">
+      <h2>👥 Reporte de alumnos</h2>
+
+      <label>Cinturón</label>
+      <select id="belt_filter">
+        <option value="">Todos</option>
+        ${belts.map(b=>`<option value="${b}">${b}</option>`).join('')}
+      </select>
+
+      <button onclick="generateStudentsReport()">📄 Generar reporte</button>
+
+      <div id="students_report_result"></div>
+
+      <button onclick="renderReports()">⬅ Volver</button>
+    </div>
+  `
+}
+function generateStudentsReport(){
+  const belt = $('belt_filter').value
+  const box = $('students_report_result')
+
+  let list = DB.students
+  if(belt) list = list.filter(s=>s.belt === belt)
+
+  if(!list.length){
+    box.innerHTML = '<p>No hay alumnos</p>'
+    return
+  }
+
+  box.innerHTML = `
+    <table>
+      <tr>
+        <th>Nombre</th>
+        <th>Cinturón</th>
+      </tr>
+      ${list.map(s=>`
+        <tr>
+          <td>${s.name}</td>
+          <td>${s.belt || '-'}</td>
+        </tr>
+      `).join('')}
+    </table>
+  `
+}
+
+
+/* =====================
+   APPEARANCE
+===================== */
+function renderAppearance(){
+const dojoOptions = DB.config.dojos.map(d => `<option value="${d.id}" ${DB.config.selectedDojo === d.id ? 'selected' : ''}>${d.name}</option>`).join('');
+
+$('content').innerHTML=`
+  <div class="box">
+    <h2>Apariencia y Dōjos</h2>
+
+    <h4>Crear nuevo Dojo</h4>
+    <input id="newDojoName" placeholder="Nombre del Dojo">
+    <label>Logo (imagen)</label>
+    <input id="newDojoLogoFile" type="file" accept="image/*">
+    <button onclick="createDojo()">➕ Crear Dojo</button>
+
+    <hr>
+    <h4>Dōjos existentes</h4>
+    <div id="dojos_list">
+      ${DB.config.dojos.map(d=>`<div style="border:1px solid #333;padding:8px;margin:6px;border-radius:6px"><img src="${d.logo||''}" style="max-width:80px;vertical-align:middle;margin-right:8px"> <strong>${d.name}</strong> <button onclick="deleteDojo('${d.id}')">Eliminar</button></div>`).join('')}
+    </div>
+
+    <hr>
+    <h4>Configuración general</h4>
+    <label>Dojo principal</label>
+    <select id="mainDojoSelect">${dojoOptions}</select>
+    <button onclick="saveAppearance()">Guardar</button>
+  </div>`
+}
+
+async function saveAppearance(){
+  const sel = $('mainDojoSelect')
+  if(sel) DB.config.selectedDojo = sel.value
+  await saveConfigToServer()
+  await renderHome()
+}
+
+async function createDojo(){
+  const name = $('newDojoName').value.trim()
+  const fileInput = $('newDojoLogoFile')
+  
+  if(!name){ alert('Ingrese nombre'); return }
+  
+  if(fileInput && fileInput.files && fileInput.files[0]){
+    const f = fileInput.files[0]
+    const r = new FileReader()
+    r.onload = async (e) => {
+      const logo = e.target.result
+      const newDojo = await createDojoOnServer(name, logo)
+      DB.config.dojos.push(newDojo)
+      await saveConfigToServer()
+      await renderAppearance()
+    }
+    r.readAsDataURL(f)
+  }else{
+    const newDojo = await createDojoOnServer(name, '')
+    DB.config.dojos.push(newDojo)
+    await saveConfigToServer()
+    await renderAppearance()
+  }
+}
+
+async function deleteDojo(id){
+  const assigned = DB.students.find(s=>s.dojoId===id)
+  if(assigned){ alert('No se puede eliminar el Dojo: hay estudiantes asignados.'); return }
+  
+  if(!confirm('Eliminar Dojo?')) return
+  
+  await deleteDojoOnServer(id)
+  DB.config.dojos = DB.config.dojos.filter(d=>d.id!==id)
+  
+  if(DB.config.selectedDojo===id) {
+    DB.config.selectedDojo = DB.config.dojos[0] ? DB.config.dojos[0].id : ''
+  }
+  
+  await saveConfigToServer()
+  await renderAppearance()
+}
+
+
+/* =====================
+   INIT
+===================== */
+async function init(){
+  await loadConfig()
+  if(sessionStorage.getItem('session')){
+    await renderHome()
+  } else {
+    renderLogin()
+  }
+}
+
+// Initialize on page load
+window.addEventListener('load', init)
+</script>
+
+<footer><small>Dojo System · localStorage</small></footer>
+</body>
+</html>

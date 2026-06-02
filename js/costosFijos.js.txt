@@ -1,0 +1,49 @@
+function agregarCostoFijo() {
+  const nombre = document.getElementById("nombreCosto").value;
+  const valor = parseFloat(document.getElementById("valorCosto").value);
+
+  if (!nombre || isNaN(valor)) return;
+
+  receta.costosFijos.push({ nombre, valor });
+
+  registrarHistorial("Se agregó costo fijo: " + nombre);
+
+  renderCostosFijos();
+  guardarReceta();
+}
+
+function eliminarCostoFijo(index) {
+  const nombre = receta.costosFijos[index].nombre;
+
+  receta.costosFijos.splice(index, 1);
+
+  registrarHistorial("Se eliminó costo fijo: " + nombre);
+
+  renderCostosFijos();
+  guardarReceta();
+}
+
+function totalCostosFijos() {
+  return receta.costosFijos.reduce((acc, c) => acc + c.valor, 0);
+}
+
+function renderCostosFijos() {
+  const cont = document.getElementById("listaCostosFijos");
+  if (!cont) return;
+
+  cont.innerHTML = "";
+
+  receta.costosFijos.forEach((c, i) => {
+    cont.innerHTML += `
+      <div>
+        ${c.nombre} - $${c.valor.toFixed(2)}
+        <button onclick="eliminarCostoFijo(${i})">X</button>
+      </div>
+    `;
+  });
+
+  document.getElementById("totalCostosFijos").textContent =
+    totalCostosFijos().toFixed(2);
+
+  calcularEscenarios();
+}

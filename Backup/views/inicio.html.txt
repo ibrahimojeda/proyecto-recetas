@@ -1,0 +1,5 @@
+<h2>Listado de Recetas</h2>
+
+<button onclick="crearNuevaReceta()">Nueva Receta</button>
+
+<div id="listaRecetas"></div>

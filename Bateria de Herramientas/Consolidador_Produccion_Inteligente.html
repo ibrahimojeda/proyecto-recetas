@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consolidador de Producción con Homologador Inteligente</title>
+    <!-- Carga de la librería SheetJS para lectura y escritura de Excel en el navegador -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-dark: #172554;
+            --accent: #0ea5e9;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --warning-light: #fef3c7;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 40px 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        header h1 {
+            color: var(--primary);
+            font-size: 28px;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 15px;
+        }
+
+        .security-badge {
+            display: inline-block;
+            background-color: #f0fdf4;
+            color: #166534;
+            padding: 6px 16px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 12px;
+            border: 1px solid #bbf7d0;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border);
+            margin-bottom: 30px;
+        }
+
+        .card h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: var(--primary-dark);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Zona de carga de archivos */
+        .dropzone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 35px 20px;
+            text-align: center;
+            cursor: pointer;
+            background-color: #f8fafc;
+            transition: all 0.2s ease;
+        }
+
+        .dropzone:hover {
+            border-color: var(--accent);
+            background-color: #f0f9ff;
+        }
+
+        .dropzone input[type="file"] {
+            display: none;
+        }
+
+        .icon-upload {
+            font-size: 40px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .file-list {
+            margin-top: 20px;
+            border-top: 1px solid var(--border);
+            padding-top: 15px;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f1f5f9;
+            padding: 8px 15px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        /* Sección de Homologación / Nombres similares */
+        .mapping-section {
+            display: none;
+            border: 2px solid var(--warning);
+            background-color: #fffdf5;
+        }
+
+        .mapping-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .mapping-row {
+            display: flex;
+            flex-direction: column;
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #fef3c7;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+
+        .mapping-row label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #b45309;
+            margin-bottom: 6px;
+        }
+
+        .mapping-select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            font-size: 13px;
+            outline: none;
+            background-color: #fff;
+        }
+
+        .mapping-select:focus {
+            border-color: var(--warning);
+        }
+
+        /* Panel de Resultados y Tabla */
+        .results-section {
+            display: none;
+        }
+
+        .actions-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .summary-badge {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--primary);
+            background: #eff6ff;
+            padding: 6px 12px;
+            border-radius: 6px;
+        }
+
+        .btn {
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-success { background-color: var(--success); }
+        .btn-success:hover { background-color: #059669; }
+
+        .btn-warning { background-color: var(--warning); color: #0f172a; }
+        .btn-warning:hover { background-color: #d97706; color: white; }
+
+        .btn-clear { background-color: #64748b; }
+        .btn-clear:hover { background-color: #475569; }
+
+        .table-container {
+            max-height: 450px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            color: var(--primary-dark);
+            font-weight: 600;
+            padding: 12px 16px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 2px solid var(--border);
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            color: #334155;
+        }
+
+        tr:hover td {
+            background-color: #f8fafc;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Consolidador Inteligente de Producción</h1>
+        <p>Sube tus archivos de facturación. El sistema agrupará los productos duplicados y te alertará si detecta nombres similares para que decidas si unificarlos.</p>
+        <div class="security-badge">🔒 Privacidad Total: Procesamiento 100% local en tu navegador</div>
+    </header>
+
+    <!-- 1. CARGA DE ARCHIVOS -->
+    <div class="card">
+        <h2>📂 Paso 1: Cargar Archivos de Excel o CSV</h2>
+        <div class="dropzone" onclick="document.getElementById('excel-input').click()">
+            <span class="icon-upload">📊</span>
+            <p><strong>Haz clic para buscar</strong> o arrastra aquí tus archivos de Excel</p>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 5px;">Columnas requeridas: <b>Fecha</b>, <b>Nombre del Producto</b> y <b>Unidades</b></p>
+            <input type="file" id="excel-input" accept=".xlsx, .xls, .csv" multiple>
+        </div>
+
+        <div id="file-list-container" class="file-list" style="display: none;">
+            <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--text-muted);">ARCHIVOS MONTADOS:</div>
+            <div id="files-registry"></div>
+        </div>
+    </div>
+
+    <!-- 2. HOMOLOGACIÓN DE NOMBRES SIMILARES (ALERTAS) -->
+    <div id="mapping-panel" class="card mapping-section">
+        <h2>⚠️ Paso 2: Productos Similares Detectados</h2>
+        <p style="font-size: 13.5px; color: #92400e; margin-bottom: 10px;">
+            Encontramos productos con nombres muy parecidos. ¿Son el mismo producto? Si seleccionas un nombre de la lista, el sistema <b>sumará sus unidades juntas</b> bajo ese único nombre elegido. Si los dejas como "Mantener original", se calcularán por separado.
+        </p>
+        
+        <div id="mapping-grid-container" class="mapping-grid">
+            <!-- Selector dinámico inyectado por JS -->
+        </div>
+        
+        <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+            <button class="btn btn-warning" onclick="applyHomologationAndProcess()">Confirmar Cruce y Procesar Totales ⚙️</button>
+        </div>
+    </div>
+
+    <!-- 3. VISTA DE RESULTADOS CONSOLIDADOS -->
+    <div id="results-panel" class="card results-section">
+        <div class="actions-bar">
+            <h2>📈 Paso 3: Resumen de Datos Consolidados</h2>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-clear" onclick="resetAll()">Limpiar Todo</button>
+                <button class="btn btn-success" onclick="exportToExcel()">📥 Exportar a Excel Corregido</button>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <div id="total-rows-badge" class="summary-badge">Registros calculados: 0</div>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Fecha</th>
+                        <th style="width: 50%;">Nombre del Producto Final</th>
+                        <th style="width: 25%; text-align: right;">Total Unidades Hechas</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <!-- Filas inyectadas por JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Variables globales
+    let allRawRows = []; // Almacena todas las filas leídas de los archivos
+    let loadedFilesLog = [];
+    let productMappings = {}; // Almacena cómo se traduce cada producto origen -> destino
+    let finalConsolidatedData = {}; 
+
+    // Capturar selección de archivos
+    document.getElementById('excel-input').addEventListener('change', function(e) {
+        let files = e.target.files;
+        if (!files.length) return;
+
+        for (let i = 0; i < files.length; i++) {
+            parseFile(files[i]);
+        }
+        this.value = '';
+    });
+
+    // Leer archivo binario o de texto
+    function parseFile(file) {
+        if (loadedFilesLog.includes(file.name)) {
+            alert(`El archivo "${file.name}" ya está cargado.`);
+            return;
+        }
+
+        const extension = file.name.split('.').pop().toLowerCase();
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            try {
+                let rows = [];
+                if (extension === 'csv') {
+                    rows = parseCSVText(e.target.result);
+                } else {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+                }
+
+                if (rows.length > 0) {
+                    // Guardar filas en bruto junto con su metadata estandarizada
+                    standardizeAndStoreRows(rows);
+                    loadedFilesLog.push(file.name);
+                    updateFilesUI();
+                    analyzeSimilarProducts(); // Ejecutar el buscador inteligente de similitudes
+                } else {
+                    alert(`El archivo "${file.name}" está vacío.`);
+                }
+            } catch (err) {
+                console.error(err);
+                alert(`Error al procesar el archivo "${file.name}".`);
+            }
+        };
+
+        if (extension === 'csv') {
+            reader.readAsText(file, "UTF-8");
+        } else {
+            reader.readAsArrayBuffer(file);
+        }
+    }
+
+    // Convertir dinámicamente columnas a variables comunes
+    function standardizeAndStoreRows(rows) {
+        let firstRow = rows[0];
+        let dateKey = findKey(firstRow, ['fecha', 'date', 'fec']);
+        let productKey = findKey(firstRow, ['nombre del producto', 'producto', 'product', 'articulo', 'nombre']);
+        let unitsKey = findKey(firstRow, ['unidades', 'cantidad', 'units', 'cant', 'qty']);
+
+        if (!dateKey || !productKey || !unitsKey) {
+            alert("Columnas 'Fecha', 'Nombre del Producto' o 'Unidades' no detectadas con precisión.");
+            return;
+        }
+
+        rows.forEach(row => {
+            let dateFormatted = normalizeDateValue(row[dateKey]);
+            let productString = row[productKey] ? String(row[productKey]).trim() : "";
+            let unitsNumber = parseFloat(String(row[unitsKey]).replace(/[^0-9.,-]/g, '').replace(',', '.')) || 0;
+
+            if (dateFormatted && productString) {
+                allRawRows.push({
+                    fecha: dateFormatted,
+                    productoOriginal: productString,
+                    unidades: unitsNumber
+                });
+            }
+        });
+    }
+
+    // Buscador inteligente de similitud lingüística (Token overlap & Substring match)
+    function calculateSimilarity(str1, str2) {
+        let s1 = str1.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]/g, '');
+        let s2 = str2.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]/g, '');
+        
+        if (s1 === s2) return 1.0;
+        if (s1.includes(s2) || s2.includes(s1)) return 0.85; // Alta coincidencia por sub-cadena (ej: Pan flauta vs Pan flauta congelada)
+
+        let words1 = s1.split(/\s+/).filter(w => w.length > 2);
+        let words2 = s2.split(/\s+/).filter(w => w.length > 2);
+        
+        if (words1.length === 0 || words2.length === 0) return 0;
+        
+        let intersection = words1.filter(w => words2.includes(w)).length;
+        let union = new Set([...words1, ...words2]).size;
+        
+        return intersection / union; // Índice de Jaccard simplificado para palabras clave
+    }
+
+    // Analizar la lista global de productos únicos para detectar cuáles se parecen entre sí
+    function analyzeSimilarProducts() {
+        // Obtener lista de productos únicos de las filas cargadas
+        let uniqueProducts = Array.from(new Set(allRawRows.map(r => r.productoOriginal))).sort();
+        
+        const mappingGrid = document.getElementById('mapping-grid-container');
+        const mappingPanel = document.getElementById('mapping-panel');
+        mappingGrid.innerHTML = '';
+        
+        let initialMatchesFound = false;
+        let handledProducts = new Set();
+
+        uniqueProducts.forEach(prod => {
+            if (handledProducts.has(prod)) return;
+
+            // Buscar candidatos similares dentro de la lista de productos únicos
+            let matches = uniqueProducts.filter(otherProd => {
+                if (prod === otherProd) return false;
+                let score = calculateSimilarity(prod, otherProd);
+                return score >= 0.45; // Umbral de similitud
+            });
+
+            if (matches.length > 0) {
+                initialMatchesFound = true;
+                handledProducts.add(prod);
+                
+                // Crear fila de control interactivo para que el usuario elija
+                let div = document.createElement('div');
+                div.className = 'mapping-row';
+                
+                let label = document.createElement('label');
+                label.innerHTML = `Detectado: <b>"${prod}"</b>`;
+                div.appendChild(label);
+
+                let select = document.createElement('select');
+                select.className = 'mapping-select';
+                select.dataset.origin = prod;
+
+                // Opción por defecto: No cruzar, mantener el original
+                let opDefault = document.createElement('option');
+                opDefault.value = prod;
+                opDefault.innerText = `🟢 Mantener como producto independiente`;
+                select.appendChild(opDefault);
+
+                // Agregar los nombres similares como opciones de fusión directa
+                matches.forEach(m => {
+                    handledProducts.add(m); // Evitar duplicar la misma alerta al revés
+                    let op = document.createElement('option');
+                    op.value = m;
+                    op.innerText = `🔀 Fusionar y sumar con: "${m}"`;
+                    select.appendChild(op);
+                });
+
+                div.appendChild(select);
+                mappingGrid.appendChild(div);
+            }
+        });
+
+        if (initialMatchesFound) {
+            mappingPanel.style.display = 'block';
+            document.getElementById('results-panel').style.display = 'none'; // Forzar revisión antes de mostrar resultados
+        } else {
+            mappingPanel.style.display = 'none';
+            // Si no hay similares, procesar directamente la consolidación normal
+            autoProcessWithoutMapping();
+        }
+    }
+
+    // Aplicar las decisiones tomadas por el usuario en la interfaz
+    function applyHomologationAndProcess() {
+        productMappings = {};
+        
+        // Inicializar mapeos idénticos por defecto
+        let uniqueProducts = Array.from(new Set(allRawRows.map(r => r.productoOriginal)));
+        uniqueProducts.forEach(p => { productMappings[p] = p; });
+
+        // Sobrescribir con lo que el usuario seleccionó en la pantalla
+        const selectors = document.querySelectorAll('.mapping-select');
+        selectors.forEach(sel => {
+            let originName = sel.dataset.origin;
+            let targetName = sel.value;
+            
+            productMappings[originName] = targetName;
+            
+            // Hacer bidireccional el mapeo si se eligió consolidar con el otro para que ambos caigan en la misma bolsa
+            if (originName !== targetName) {
+                productMappings[targetName] = targetName; 
+            }
+        });
+
+        executeConsolidationLogic();
+    }
+
+    function autoProcessWithoutMapping() {
+        productMappings = {};
+        let uniqueProducts = Array.from(new Set(allRawRows.map(r => r.productoOriginal)));
+        uniqueProducts.forEach(p => { productMappings[p] = p; });
+        executeConsolidationLogic();
+    }
+
+    // Agrupación final por Fecha + Nombre Homologado por el usuario
+    function executeConsolidationLogic() {
+        finalConsolidatedData = {};
+
+        allRawRows.forEach(row => {
+            let originalName = row.productoOriginal;
+            // Buscar si el usuario redefinió el nombre de este artículo
+            let finalName = productMappings[originalName] || originalName;
+            
+            let key = `${row.fecha}|||${finalName}`;
+
+            if (!finalConsolidatedData[key]) {
+                finalConsolidatedData[key] = {
+                    'Fecha': row.fecha,
+                    'Nombre del Producto': finalName,
+                    'Unidades': 0
+                };
+            }
+            finalConsolidatedData[key]['Unidades'] += row.unidades;
+        });
+
+        renderConsolidatedTable();
+    }
+
+    // Renderizado en pantalla de la tabla final
+    function renderConsolidatedTable() {
+        const tbody = document.getElementById('table-body');
+        const panel = document.getElementById('results-panel');
+        const badge = document.getElementById('total-rows-badge');
+
+        tbody.innerHTML = '';
+        let itemsList = Object.values(finalConsolidatedData);
+
+        if (itemsList.length === 0) {
+            panel.style.display = 'none';
+            return;
+        }
+
+        // Ordenar por fecha desc y alfabéticamente
+        itemsList.sort((a, b) => {
+            if (a['Fecha'] !== b['Fecha']) return b['Fecha'].localeCompare(a['Fecha']);
+            return a['Nombre del Producto'].localeCompare(b['Nombre del Producto']);
+        });
+
+        badge.innerText = `Registros unificados finales: ${itemsList.length} filas combinadas`;
+
+        itemsList.forEach(item => {
+            let tr = document.createElement('tr');
+            let formattedUnits = item['Unidades'].toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
+            tr.innerHTML = `
+                <td style="font-weight: 600; color: var(--primary);">${item['Fecha']}</td>
+                <td>${item['Nombre del Producto']}</td>
+                <td style="text-align: right; font-weight: bold;">${formattedUnits}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        panel.style.display = 'block';
+        panel.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Exportación directa a Excel .xlsx
+    function exportToExcel() {
+        let itemsList = Object.values(finalConsolidatedData);
+        if (itemsList.length === 0) return;
+
+        itemsList.sort((a, b) => {
+            if (a['Fecha'] !== b['Fecha']) return a['Fecha'].localeCompare(b['Fecha']);
+            return a['Nombre del Producto'].localeCompare(b['Nombre del Producto']);
+        });
+
+        let worksheet = XLSX.utils.json_to_sheet(itemsList);
+        let workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Producción Final");
+
+        const max_len_prod = Math.max(...itemsList.map(item => item['Nombre del Producto'].length), 25);
+        worksheet['!cols'] = [{ wch: 15 }, { wch: max_len_prod + 2 }, { wch: 18 }];
+
+        XLSX.writeFile(workbook, "Produccion_Consolidad_Con_Homologacion.xlsx");
+    }
+
+    // Helpers de utilidades parsing
+    function parseCSVText(text) {
+        let lines = text.split(/\r?\n/);
+        if (lines.length === 0) return [];
+        let separator = lines[0].includes(';') ? ';' : ',';
+        let headers = lines[0].split(separator).map(h => h.replace(/^["']|["']$/g, '').trim());
+        let result = [];
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            let cols = lines[i].split(separator).map(c => c.replace(/^["']|["']$/g, '').trim());
+            let rowObj = {};
+            headers.forEach((h, idx) => { rowObj[h] = cols[idx] || ""; });
+            result.push(rowObj);
+        }
+        return result;
+    }
+
+    function findKey(row, targets) {
+        let keys = Object.keys(row);
+        for (let k of keys) {
+            let norm = k.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+            if (targets.includes(norm)) return k;
+        }
+        for (let k of keys) {
+            let norm = k.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+            for (let t of targets) { if (norm.includes(t) || t.includes(norm)) return k; }
+        }
+        return null;
+    }
+
+    function normalizeDateValue(rawDate) {
+        if (!rawDate) return null;
+        if (rawDate instanceof Date && !isNaN(rawDate)) {
+            return `${rawDate.getFullYear()}-${String(rawDate.getMonth() + 1).padStart(2, '0')}-${String(rawDate.getDate()).padStart(2, '0')}`;
+        }
+        let str = String(rawDate).trim();
+        if (str.includes('T')) return str.split('T')[0];
+        let ddmmyyyy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        if (ddmmyyyy) return `${ddmmyyyy[3]}-${ddmmyyyy[2].padStart(2, '0')}-${ddmmyyyy[1].padStart(2, '0')}`;
+        return str;
+    }
+
+    function updateFilesUI() {
+        const container = document.getElementById('file-list-container');
+        const registry = document.getElementById('files-registry');
+        container.style.display = loadedFilesLog.length ? 'block' : 'none';
+        registry.innerHTML = '';
+        loadedFilesLog.forEach(name => {
+            let d = document.createElement('div');
+            d.className = 'file-item';
+            d.innerHTML = `<span>📄 ${name}</span>`;
+            registry.appendChild(d);
+        });
+    }
+
+    function resetAll() {
+        allRawRows = [];
+        loadedFilesLog = [];
+        productMappings = {};
+        finalConsolidatedData = {};
+        document.getElementById('mapping-panel').style.display = 'none';
+        updateFilesUI();
+        renderConsolidatedTable();
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Herramienta de Relleno de Lotes - Alimentos Quantum</title>
+    <!-- Incluir SheetJS para manejar archivos de Excel y CSV sin dependencias externas complejas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #16a085;
+            --bg: #f4f7f6;
+            --text: #333;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-top: 20px;
+        }
+        h1 {
+            color: var(--primary);
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        p.subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .drop-zone {
+            border: 2px dashed var(--accent);
+            padding: 40px 20px;
+            text-align: center;
+            background: #fdfefe;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            background: #e8f8f5;
+            border-color: #117a65;
+        }
+        .drop-zone p {
+            font-size: 16px;
+            margin: 0 0 10px 0;
+            color: #555;
+        }
+        .file-input {
+            display: none;
+        }
+        .btn {
+            display: inline-block;
+            background-color: var(--accent);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+            margin-top: 15px;
+        }
+        .btn:hover {
+            background-color: #117a65;
+        }
+        .btn:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+            font-size: 14px;
+        }
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .instructions {
+            background: #ebf5fb;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 0 4px 4px 0;
+        }
+        .instructions h3 {
+            margin: 0 0 8px 0;
+            color: #2980b9;
+            font-size: 16px;
+        }
+        .instructions ol {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .preview-box {
+            margin-top: 25px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            display: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            text-align: left;
+        }
+        th, td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background-color: #f2f2f2;
+            position: sticky;
+            top: 0;
+            color: var(--primary);
+        }
+        .highlight-filled {
+            background-color: #e8f8f5;
+            font-weight: bold;
+            color: #16a085;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Rellenar Lotes de Trazabilidad</h1>
+    <p class="subtitle">Alimentos Quantum — Corrección Automatizada de Registros vacíos o con puntos (`.`)</p>
+
+    <div class="instructions">
+        <h3>¿Cómo usar esta herramienta?</h3>
+        <ol>
+            <li>Exporta tu reporte PDF a un archivo <strong>Excel (.xlsx)</strong> o <strong>CSV</strong>.</li>
+            <li>Asegúrate de que las columnas mantengan sus nombres originales (<em>Producto, Ingrediente, Lote ingrediente, Lote salida</em>, etc.).</li>
+            <li>Arrastra el archivo al recuadro de abajo o haz clic para seleccionarlo.</li>
+            <li>El sistema buscará los lotes correctos para el mismo bloque de producción y rellenará las celdas vacías o que contengan solo un punto.</li>
+            <li>Descarga el archivo corregido de inmediato de forma segura.</li>
+        </ol>
+    </div>
+
+    <div class="drop-zone" id="dropZone">
+        <p><strong>Arrastra aquí tu archivo Excel o CSV</strong></p>
+        <p>o haz clic para explorar tus carpetas</p>
+        <input type="file" id="fileInput" class="file-input" accept=".xlsx, .xls, .csv">
+        <div id="fileInfo" style="margin-top: 10px; font-weight: bold; color: var(--primary);"></div>
+    </div>
+
+    <div style="text-align: center;">
+        <button id="processBtn" class="btn" disabled>Procesar y Rellenar Lotes</button>
+        <button id="downloadBtn" class="btn" style="background-color: #2980b9; display: none;">Descargar Archivo Corregido</button>
+    </div>
+
+    <div id="status"></div>
+
+    <div class="preview-box" id="previewBox">
+        <h4 style="padding: 10px 10px 0 10px; margin: 0; color: #555;">Vista previa de los datos procesados (Primeras 20 filas):</h4>
+        <table id="previewTable">
+            <thead><tr id="tableHeader"></tr></thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const processBtn = document.getElementById('processBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const statusDiv = document.getElementById('status');
+    const previewBox = document.getElementById('previewBox');
+    const fileInfo = document.getElementById('fileInfo');
+
+    let workbookData = null;
+    let processedRows = [];
+    let originalFileName = "";
+    let fileType = "";
+
+    // Manejadores de eventos de arrastrar y soltar
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        }, false);
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length) handleFile(files[0]);
+    });
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+
+    function showStatus(message, type) {
+        statusDiv.style.display = 'block';
+        statusDiv.className = type === 'success' ? 'status-success' : 'status-error';
+        statusDiv.innerHTML = message;
+    }
+
+    function handleFile(file) {
+        originalFileName = file.name;
+        fileInfo.textContent = `Archivo seleccionado: ${file.name}`;
+        processBtn.disabled = false;
+        downloadBtn.style.display = 'none';
+        previewBox.style.display = 'none';
+        statusDiv.style.display = 'none';
+
+        const reader = new FileReader();
+        if (file.name.endsWith('.csv')) {
+            fileType = 'csv';
+            reader.readAsText(file, 'UTF-8');
+        } else {
+            fileType = 'xlsx';
+            reader.readAsArrayBuffer(file);
+        }
+
+        reader.onload = function(e) {
+            workbookData = e.target.result;
+            showStatus('Archivo cargado correctamente. Listo para procesar.', 'success');
+        };
+    }
+
+    processBtn.addEventListener('click', () => {
+        if (!workbookData) return;
+
+        try {
+            let jsonData = [];
+            let worksheet = null;
+            let workbook = null;
+
+            if (fileType === 'xlsx') {
+                workbook = XLSX.read(workbookData, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                worksheet = workbook.Sheets[firstSheetName];
+                jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+            } else {
+                workbook = XLSX.read(workbookData, { type: 'string' });
+                const firstSheetName = workbook.SheetNames[0];
+                worksheet = workbook.Sheets[firstSheetName];
+                jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+            }
+
+            if (jsonData.length === 0) {
+                showStatus('El archivo parece estar vacío o no se pudo interpretar correctamente.', 'error');
+                return;
+            }
+
+            // Identificar los nombres de las columnas reales de manera flexible (ignorando mayúsculas/minúsculas y espacios)
+            const keys = Object.keys(jsonData[0]);
+            let colLoteIngrediente = keys.find(k => k.toLowerCase().includes('lote') && k.toLowerCase().includes('ingrediente')) || keys.find(k => k.toLowerCase().includes('lote')) || keys[4];
+            let colLoteSalida = keys.find(k => k.toLowerCase().includes('salida')) || keys[5];
+            let colProducto = keys.find(k => k.toLowerCase().includes('producto')) || keys[1];
+
+            let lastValidLoteSalida = "";
+            let filledCount = 0;
+
+            // Mapeo temporal para almacenar el último lote de salida válido por Producto
+            // O arrastre por bloque consecutivo
+            for (let i = 0; i < jsonData.length; i++) {
+                let row = jsonData[i];
+
+                // Si viene vacío el Lote de salida, arrastramos el anterior inmediato (común en conversiones de PDF)
+                if (row[colLoteSalida] && row[colLoteSalida].toString().trim() !== "" && row[colLoteSalida].toString().trim() !== ".") {
+                    lastValidLoteSalida = row[colLoteSalida].toString().trim();
+                } else if (lastValidLoteSalida && (!row[colLoteSalida] || row[colLoteSalida].toString().trim() === "." || row[colLoteSalida].toString().trim() === "")) {
+                    row[colLoteSalida] = lastValidLoteSalida;
+                }
+
+                // Normalización y relleno de la columna 'Lote ingrediente'
+                let loteIngVal = row[colLoteIngrediente] ? row[colLoteIngrediente].toString().trim() : "";
+                
+                if (loteIngVal === "." || loteIngVal === "") {
+                    // Buscar en el lote de salida como referencia para rellenar
+                    // En los reportes de trazabilidad de Alimentos Quantum, si el lote de ingrediente está en blanco o punto,
+                    // corresponde al lote de salida asignado a ese bloque de producción o al lote del primer ingrediente declarado arriba.
+                    
+                    // Buscaremos hacia arriba en el mismo bloque de Lote de Salida el primer ingrediente que SÍ tenga lote asignado
+                    let foundLote = "";
+                    for (let j = i - 1; j >= 0; j--) {
+                        if (jsonData[j][colLoteSalida] === row[colLoteSalida]) {
+                            let prevVal = jsonData[j][colLoteIngrediente] ? jsonData[j][colLoteIngrediente].toString().trim() : "";
+                            if (prevVal !== "" && prevVal !== ".") {
+                                foundLote = prevVal;
+                                break;
+                            }
+                        } else {
+                            break; // Cambió de bloque de producción
+                        }
+                    }
+
+                    if (foundLote) {
+                        row[colLoteIngrediente] = foundLote;
+                        row['_isFilled'] = true; // Flag para destacar visualmente en la vista previa
+                        filledCount++;
+                    }
+                }
+            }
+
+            processedRows = jsonData;
+            showStatus(`¡Proceso completado con éxito! Se rellenaron <strong>${filledCount}</strong> celdas que tenían puntos o estaban vacías.`, 'success');
+            downloadBtn.style.display = 'inline-block';
+            
+            // Generar vista previa
+            generatePreview(processedRows, keys, colLoteIngrediente);
+
+        } catch (err) {
+            console.error(err);
+            showStatus('Ocurrió un error al procesar el archivo. Asegúrate de que las columnas coincidan con el formato del reporte.', 'error');
+        }
+    });
+
+    function generatePreview(data, headers, colHighlight) {
+        const headerRow = document.getElementById('tableHeader');
+        const tableBody = document.getElementById('tableBody');
+        
+        headerRow.innerHTML = "";
+        tableBody.innerHTML = "";
+
+        // Columnas
+        headers.forEach(h => {
+            const th = document.createElement('th');
+            th.textContent = h;
+            headerRow.appendChild(th);
+        });
+
+        // Mostrar solo las primeras 20 filas para no ralentizar el navegador
+        const previewData = data.slice(0, 20);
+        previewData.forEach(row => {
+            const tr = document.createElement('tr');
+            headers.forEach(h => {
+                const td = document.createElement('td');
+                td.textContent = row[h];
+                if (h === colHighlight && row['_isFilled']) {
+                    td.classList.add('highlight-filled');
+                }
+                tr.appendChild(td);
+            });
+            tableBody.appendChild(tr);
+        });
+
+        previewBox.style.display = 'block';
+    }
+
+    downloadBtn.addEventListener('click', () => {
+        if (!processedRows.length) return;
+
+        // Limpiar flags temporales antes de descargar
+        const cleanData = processedRows.map(row => {
+            const cleanRow = { ...row };
+            delete cleanRow['_isFilled'];
+            return cleanRow;
+        });
+
+        const newSheet = XLSX.utils.json_to_sheet(cleanData);
+        const newWorkbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(newWorkbook, newSheet, "Trazabilidad Corregida");
+
+        let nameParts = originalFileName.split('.');
+        let ext = nameParts.pop();
+        let newName = nameParts.join('.') + '_CORREGIDO.xlsx';
+
+        // Forzar descarga como archivo XLSX (es el más recomendado y estable)
+        XLSX.writeFile(newWorkbook, newName);
+    });
+</script>
+
+</body>
+</html>

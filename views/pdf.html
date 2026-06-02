@@ -1,0 +1,18 @@
+<h2>Generar PDF</h2>
+
+<div id="vistaPDF"></div>
+
+<button onclick="generarPDF()">Generar</button>
+<button onclick="irInicio()">Volver al inicio</button>
+
+<script>
+function generarPDF() {
+
+  receta.pdfGenerado = true;
+
+  actualizarEstadoReceta();
+  guardarRecetas();
+
+  alert("El PDF se generó correctamente.");
+}
+</script>

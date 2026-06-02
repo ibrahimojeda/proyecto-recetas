@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consolidador de Producción Diaria</title>
+    <!-- Carga de la librería SheetJS para lectura y escritura de Excel en el navegador -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-dark: #172554;
+            --accent: #0ea5e9;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 40px 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        header h1 {
+            color: var(--primary);
+            font-size: 28px;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 15px;
+        }
+
+        .security-badge {
+            display: inline-block;
+            background-color: #f0fdf4;
+            color: #166534;
+            padding: 6px 16px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 12px;
+            border: 1px solid #bbf7d0;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border);
+            margin-bottom: 30px;
+        }
+
+        .card h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: var(--primary-dark);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Zona de carga de archivos */
+        .dropzone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 35px 20px;
+            text-align: center;
+            cursor: pointer;
+            background-color: #f8fafc;
+            transition: all 0.2s ease;
+        }
+
+        .dropzone:hover {
+            border-color: var(--accent);
+            background-color: #f0f9ff;
+        }
+
+        .dropzone input[type="file"] {
+            display: none;
+        }
+
+        .icon-upload {
+            font-size: 40px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        /* Lista de archivos cargados */
+        .file-list {
+            margin-top: 20px;
+            border-top: 1px solid var(--border);
+            padding-top: 15px;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f1f5f9;
+            padding: 8px 15px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .file-item .remove-btn {
+            color: #ef4444;
+            cursor: pointer;
+            font-weight: bold;
+            border: none;
+            background: none;
+            padding: 0 5px;
+        }
+
+        /* Panel de Resultados y Tabla */
+        .results-section {
+            display: none;
+        }
+
+        .actions-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .summary-badge {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--primary);
+            background: #eff6ff;
+            padding: 6px 12px;
+            border-radius: 6px;
+        }
+
+        .btn {
+            background-color: var(--success);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background-color: #059669;
+        }
+
+        .btn-clear {
+            background-color: #64748b;
+        }
+        .btn-clear:hover {
+            background-color: #475569;
+        }
+
+        .table-container {
+            max-height: 450px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            color: var(--primary-dark);
+            font-weight: 600;
+            padding: 12px 16px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 2px solid var(--border);
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            color: #334155;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background-color: #f8fafc;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Consolidador Inteligente de Producción</h1>
+        <p>Sube uno o varios archivos de Excel de facturación. El sistema agrupará las filas por fecha y producto automáticamente, sumando las unidades duplicadas.</p>
+        <div class="security-badge">🔒 Privacidad Total: Tus datos se procesan 100% en tu navegador y no se envían a ningún servidor</div>
+    </header>
+
+    <!-- CARGA DE ARCHIVOS -->
+    <div class="card">
+        <h2>📂 Cargar Archivos de Excel o CSV</h2>
+        <div class="dropzone" onclick="document.getElementById('excel-input').click()">
+            <span class="icon-upload">📊</span>
+            <p><strong>Haz clic para buscar</strong> o arrastra aquí tus archivos de Excel</p>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 5px;">Columnas requeridas: <b>Fecha</b>, <b>Nombre del Producto</b> y <b>Unidades</b></p>
+            <!-- Input que permite selección múltiple -->
+            <input type="file" id="excel-input" accept=".xlsx, .xls, .csv" multiple>
+        </div>
+
+        <div id="file-list-container" class="file-list" style="display: none;">
+            <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--text-muted);">ARCHIVOS MONTADOS:</div>
+            <div id="files-registry"></div>
+        </div>
+    </div>
+
+    <!-- VISTA DE RESULTADOS CONSOLIDADOS -->
+    <div id="results-panel" class="card results-section">
+        <div class="actions-bar">
+            <h2>📈 Resumen de Datos Consolidados</h2>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-clear" onclick="resetAll()">Limpiar Todo</button>
+                <button class="btn" onclick="exportToExcel()">📥 Exportar a Excel Corregido</button>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+            <div id="total-rows-badge" class="summary-badge">Registros únicos calculados: 0</div>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Fecha</th>
+                        <th style="width: 50%;">Nombre del Producto</th>
+                        <th style="width: 25%; text-align: right;">Total Unidades Hechas</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <!-- Filas inyectadas dinámicamente por JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Estructura global para acumular los datos indexados por "Fecha|||Producto"
+    let consolidatedStorage = {};
+    let loadedFilesLog = [];
+
+    // Capturar selección de archivos
+    document.getElementById('excel-input').addEventListener('change', function(e) {
+        let files = e.target.files;
+        if (!files.length) return;
+
+        for (let i = 0; i < files.length; i++) {
+            parseFile(files[i]);
+        }
+        // Resetear el input para permitir volver a subir el mismo archivo si se limpia
+        this.value = '';
+    });
+
+    // Función para procesar individualmente cada archivo
+    function parseFile(file) {
+        // Evitar duplicar el mismo archivo si ya se cargó
+        if (loadedFilesLog.includes(file.name)) {
+            alert(`El archivo "${file.name}" ya se encuentra cargado.`);
+            return;
+        }
+
+        const extension = file.name.split('.').pop().toLowerCase();
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            try {
+                let rows = [];
+
+                if (extension === 'csv') {
+                    // Procesar formato CSV simple
+                    const text = e.target.result;
+                    rows = parseCSVText(text);
+                } else {
+                    // Procesar formatos Excel (.xlsx, .xls)
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+                }
+
+                if (rows.length > 0) {
+                    processRowsData(rows);
+                    loadedFilesLog.push(file.name);
+                    updateFilesUI();
+                    renderConsolidatedTable();
+                } else {
+                    alert(`El archivo "${file.name}" parece estar vacío o no tiene un formato válido.`);
+                }
+
+            } catch (err) {
+                console.error(err);
+                alert(`Error al procesar el archivo "${file.name}". Asegúrate de que no esté protegido o dañado.`);
+            }
+        };
+
+        if (extension === 'csv') {
+            reader.readAsText(file, "UTF-8");
+        } else {
+            reader.readAsArrayBuffer(file);
+        }
+    }
+
+    // Parseador básico de fallbacks para CSV por si no usan Excel nativo
+    function parseCSVText(text) {
+        let lines = text.split(/\r?\n/);
+        if (lines.length === 0) return [];
+        
+        // Detectar separador (coma o punto y coma)
+        let headerLine = lines[0];
+        let separator = headerLine.includes(';') ? ';' : ',';
+        
+        let headers = headerLine.split(separator).map(h => h.replace(/^["']|["']$/g, '').trim());
+        let result = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            let cols = lines[i].split(separator).map(c => c.replace(/^["']|["']$/g, '').trim());
+            let rowObj = {};
+            headers.forEach((h, index) => {
+                rowObj[h] = cols[index] || "";
+            });
+            result.push(rowObj);
+        }
+        return result;
+    }
+
+    // Buscar nombres de columnas tolerando mayúsculas, minúsculas o acentos básicos
+    function findKey(row, targets) {
+        let keys = Object.keys(row);
+        for (let k of keys) {
+            let normalizedKey = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            if (targets.includes(normalizedKey)) {
+                return k;
+            }
+        }
+        // Fallback de proximidad parcial
+        for (let k of keys) {
+            let normalizedKey = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            for (let t of targets) {
+                if (normalizedKey.includes(t) || t.includes(normalizedKey)) return k;
+            }
+        }
+        return null;
+    }
+
+    // Formatear de forma estándar la fecha leída
+    function normalizeDateValue(rawDate) {
+        if (!rawDate) return null;
+        
+        // Si SheetJS lo interpretó directamente como objeto Date de JS
+        if (rawDate instanceof Date && !isNaN(rawDate)) {
+            let yyyy = rawDate.getFullYear();
+            let mm = String(rawDate.getMonth() + 1).padStart(2, '0');
+            let dd = String(rawDate.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        // Si viene como string de texto
+        let str = String(rawDate).trim();
+        
+        // Si detecta marcas de tiempo largas de Excel (ej: "2026-05-15T00:00:00.000Z")
+        if (str.includes('T')) {
+            return str.split('T')[0];
+        }
+
+        // Manejar formatos comunes DD/MM/YYYY o DD-MM-YYYY
+        let ddmmyyyy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        if (ddmmyyyy) {
+            let day = ddmmyyyy[1].padStart(2, '0');
+            let month = ddmmyyyy[2].padStart(2, '0');
+            let year = ddmmyyyy[3];
+            return `${year}-${month}-${day}`;
+        }
+        
+        // Manejar formatos YYYY/MM/DD
+        let yyyymmdd = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+        if (yyyymmdd) {
+            return `${yyyymmdd[1]}-${yyyymmdd[2].padStart(2, '0')}-${yyyymmdd[3].padStart(2, '0')}`;
+        }
+
+        return str; // Retorna lo que encuentre si no se puede parsear con regex de respaldo
+    }
+
+    // Agregar y procesar las filas del archivo en el almacén maestro consolidado
+    function processRowsData(rows) {
+        if (rows.length === 0) return;
+
+        // Detectar dinámicamente las columnas deseadas basándonos en los headers suministrados
+        let firstRow = rows[0];
+        let dateKey = findKey(firstRow, ['fecha', 'date', 'fec']);
+        let productKey = findKey(firstRow, ['nombre del producto', 'producto', 'product', 'articulo', 'nombre']);
+        let unitsKey = findKey(firstRow, ['unidades', 'cantidad', 'units', 'cant', 'qty']);
+
+        if (!dateKey || !productKey || !unitsKey) {
+            alert("Advertencia crítica: No se pudieron mapear con precisión las columnas indispensables.\nAsegúrate de que tu archivo contenga las columnas encabezadas exactamente como: 'Fecha', 'Nombre del Producto' y 'Unidades'.");
+            return;
+        }
+
+        rows.forEach(row => {
+            let rawDate = row[dateKey];
+            let rawProduct = row[productKey];
+            let rawUnits = row[unitsKey];
+
+            let dateFormatted = normalizeDateValue(rawDate);
+            let productString = rawProduct ? String(rawProduct).trim() : "";
+            let unitsNumber = parseFloat(String(rawUnits).replace(/[^0-9.,-]/g, '').replace(',', '.')) || 0;
+
+            // Saltar filas sin datos consistentes
+            if (!dateFormatted || !productString) return;
+
+            // Llave compuesta única por día y por artículo
+            let storageKey = `${dateFormatted}|||${productString}`;
+
+            if (!consolidatedStorage[storageKey]) {
+                consolidatedStorage[storageKey] = {
+                    'Fecha': dateFormatted,
+                    'Nombre del Producto': productString,
+                    'Unidades': 0
+                };
+            }
+            // Sumar de forma acumulativa
+            consolidatedStorage[storageKey]['Unidades'] += unitsNumber;
+        });
+    }
+
+    // Mostrar en pantalla la lista de archivos activos actualmente consolidados
+    function updateFilesUI() {
+        const container = document.getElementById('file-list-container');
+        const registry = document.getElementById('files-registry');
+        
+        if (loadedFilesLog.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'block';
+        registry.innerHTML = '';
+
+        loadedFilesLog.forEach((name, index) => {
+            let div = document.createElement('div');
+            div.className = 'file-item';
+            div.innerHTML = `
+                <span>📄 ${name}</span>
+                <button class="remove-btn" onclick="removeFile(${index})" title="Quitar archivo de la consolidación">✕</button>
+            `;
+            registry.appendChild(div);
+        });
+    }
+
+    // Quitar un archivo de la lista (reinicia el almacenamiento y vuelve a cargar los restantes)
+    // Esto se realiza para recalcular limpiamente los acumulados sin el archivo eliminado
+    function removeFile(indexToRemove) {
+        loadedFilesLog.splice(indexToRemove, 1);
+        
+        // Al vaciar los logs, reiniciamos el storage y volvemos a solicitar la recarga si hay archivos
+        alert("El archivo ha sido removido. El sistema recalculará los consolidados de inmediato.");
+        
+        // Como no conservamos las referencias binarias de archivos previos por motivos de seguridad en JS local, 
+        // para un flujo óptimo se recomienda limpiar todo o subir los archivos consolidados juntos.
+        // Dejamos el storage vacío para que el usuario mantenga el control.
+        resetAllDataOnly();
+        updateFilesUI();
+        renderConsolidatedTable();
+    }
+
+    // Renderizar la tabla interactiva de previsualización en pantalla
+    function renderConsolidatedTable() {
+        const tbody = document.getElementById('table-body');
+        const panel = document.getElementById('results-panel');
+        const badge = document.getElementById('total-rows-badge');
+
+        tbody.innerHTML = '';
+        
+        // Convertir el almacén de objetos indexados a un arreglo plano iterable
+        let itemsList = Object.values(consolidatedStorage);
+
+        if (itemsList.length === 0) {
+            panel.style.display = 'none';
+            return;
+        }
+
+        // Ordenar los registros primero por Fecha en orden descendente, y luego alfabéticamente por Producto
+        itemsList.sort((a, b) => {
+            if (a['Fecha'] !== b['Fecha']) {
+                return b['Fecha'].localeCompare(a['Fecha']);
+            }
+            return a['Nombre del Producto'].localeCompare(b['Nombre del Producto']);
+        });
+
+        badge.innerText = `Registros únicos calculados: ${itemsList.length} combinaciones (Día / Producto)`;
+
+        itemsList.forEach(item => {
+            let tr = document.createElement('tr');
+            
+            // Formatear unidades con separador de miles legible en pantalla
+            let formattedUnits = item['Unidades'].toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
+            tr.innerHTML = `
+                <td style="font-weight: 600; color: var(--primary);">${item['Fecha']}</td>
+                <td>${item['Nombre del Producto']}</td>
+                <td style="text-align: right; font-weight: bold; color: #0f172a;">${formattedUnits}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        panel.style.display = 'block';
+    }
+
+    // Función para exportar los datos calculados limpios de vuelta a un archivo .xlsx real
+    function exportToExcel() {
+        let itemsList = Object.values(consolidatedStorage);
+        if (itemsList.length === 0) return;
+
+        // Reordenar cronológicamente ascendente para la entrega formal del informe final
+        itemsList.sort((a, b) => {
+            if (a['Fecha'] !== b['Fecha']) {
+                return a['Fecha'].localeCompare(b['Fecha']);
+            }
+            return a['Nombre del Producto'].localeCompare(b['Nombre del Producto']);
+        });
+
+        // Generar estructura de hoja de cálculo usando SheetJS
+        let worksheet = XLSX.utils.json_to_sheet(itemsList);
+        let workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Producción Consolidada");
+
+        // Autoajustar anchos de columnas para pulcritud visual básica
+        const max_len_prod = Math.max(...itemsList.map(item => item['Nombre del Producto'].length), 22);
+        worksheet['!cols'] = [
+            { wch: 15 }, // Fecha
+            { wch: max_len_prod + 2 }, // Nombre del Producto
+            { wch: 18 }  // Unidades
+        ];
+
+        // Descargar archivo binario XLSX nativo en el navegador
+        XLSX.writeFile(workbook, "Produccion_Consolidada_Corregida.xlsx");
+    }
+
+    function resetAllDataOnly() {
+        consolidatedStorage = {};
+    }
+
+    function resetAll() {
+        consolidatedStorage = {};
+        loadedFilesLog = [];
+        updateFilesUI();
+        renderConsolidatedTable();
+    }
+</script>
+
+</body>
+</html>

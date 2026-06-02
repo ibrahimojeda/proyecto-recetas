@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modificador y Escalador Inteligente de Recetas</title>
+    <style>
+        :root {
+            --primary: #854d0e; /* Marrón/Dorado panadería */
+            --primary-dark: #451a03;
+            --accent: #d97706;
+            --bg: #fdfaf7; /* Fondo crema suave */
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --success: #15803d;
+            --info: #0369a1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 30px 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #f5e0cf;
+            padding-bottom: 20px;
+        }
+
+        header h1 {
+            color: var(--primary-dark);
+            font-size: 28px;
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 15px;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 25px;
+            align-items: start;
+        }
+
+        /* Paneles Estilo Card */
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 10px rgba(69, 26, 3, 0.04);
+            border: 1px solid #f1e4d8;
+        }
+
+        .card h2 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: var(--primary-dark);
+            border-left: 4px solid var(--accent);
+            padding-left: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Zona de Carga de CSV */
+        .upload-box {
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            background-color: #fafafa;
+            transition: all 0.2s ease;
+            margin-bottom: 20px;
+        }
+
+        .upload-box:hover {
+            border-color: var(--accent);
+            background-color: #fffbeb;
+        }
+
+        .upload-box input[type="file"] {
+            display: none;
+        }
+
+        /* Listado de Recetas Izquierda */
+        .recipe-list {
+            max-height: 500px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .recipe-item {
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #fff;
+        }
+
+        .recipe-item:hover {
+            background-color: #fff9f2;
+            border-color: var(--accent);
+        }
+
+        .recipe-item.active {
+            background-color: #fef3c7;
+            border-color: var(--accent);
+            font-weight: 600;
+            color: var(--primary-dark);
+        }
+
+        .recipe-item .meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Formulario de Edición y Escalado */
+        .editor-header-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            background: #fdfbf7;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #f3eae0;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .form-group input, .form-group select {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .form-group input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px #fef3c7;
+        }
+
+        .form-group input[readonly] {
+            background-color: #e2e8f0;
+            color: #475569;
+        }
+
+        /* Tabla de Ingredientes */
+        .table-container {
+            margin-top: 15px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 13.5px;
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: var(--primary-dark);
+            font-weight: 600;
+            padding: 10px 14px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:hover td {
+            background-color: #fffdfa;
+        }
+
+        /* Botones y Acciones */
+        .actions-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: white;
+        }
+
+        .btn-primary { background-color: var(--accent); }
+        .btn-primary:hover { background-color: #b45309; }
+
+        .btn-success { background-color: var(--success); }
+        .btn-success:hover { background-color: #166534; }
+
+        .btn-info { background-color: var(--info); }
+        .btn-info:hover { background-color: #075985; }
+
+        .save-as-box {
+            background: #fffbeb;
+            border: 1px solid #fef3c7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .save-as-box h3 {
+            font-size: 13px;
+            color: #92400e;
+            margin-bottom: 10px;
+        }
+
+        .save-as-inputs {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .no-data {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 40px 20px;
+            font-style: italic;
+        }
+
+        .badge-count {
+            background: #f5e0cf;
+            color: var(--primary-dark);
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Modificador y Escalador Inteligente de Recetas</h1>
+        <p>Sube tu archivo de recetas CSV, modifica el peso por unidad o las unidades deseadas, y genera variaciones instantáneas conservando los porcentajes exactos.</p>
+    </header>
+
+    <div class="workspace">
+        <!-- BARRA LATERAL: CARGA Y LISTADO -->
+        <div class="sidebar">
+            <div class="card" style="margin-bottom: 20px;">
+                <h2>📁 Cargar Archivo</h2>
+                <div class="upload-box" onclick="document.getElementById('csv-file').click()">
+                    <span style="font-size: 24px; display:block; margin-bottom:5px;">📄</span>
+                    <strong>Subir CSV de Recetas</strong>
+                    <input type="file" id="csv-file" accept=".csv">
+                </div>
+                <button class="btn btn-success" style="width: 100%; justify-content: center;" onclick="exportAllToCSV()">
+                    📥 Exportar Todo a CSV
+                </button>
+            </div>
+
+            <div class="card">
+                <h2>📜 Recetas <span class="badge-count" id="recipe-count">0</span></h2>
+                <div class="recipe-list" id="recipe-list-container">
+                    <div class="no-data">Ninguna receta cargada</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AREA DE TRABAJO: EDITOR Y ESCALADOR -->
+        <div class="main-content">
+            <div class="card" id="editor-card" style="display: none;">
+                <h2>
+                    🛠️ Ficha de Edición y Escalado Proporcional
+                    <span style="font-weight: normal; font-size: 13px; color: var(--text-muted);" id="active-recipe-title"></span>
+                </h2>
+
+                <!-- Campos de cabecera de receta -->
+                <div class="editor-header-grid">
+                    <div class="form-group">
+                        <label>Nombre de Receta</label>
+                        <input type="text" id="edit-receta" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Versión</label>
+                        <input type="text" id="edit-version" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Peso Unidad (gr) ✏️</label>
+                        <input type="number" id="edit-peso-unidad" min="0" step="any" oninput="calculateScaledBatch()">
+                    </div>
+                    <div class="form-group">
+                        <label>Unidades Deseadas ✏️</label>
+                        <input type="number" id="edit-unidades" min="0" step="any" oninput="calculateScaledBatch()">
+                    </div>
+                    <div class="form-group">
+                        <label>Batch Deseado Total (g)</label>
+                        <input type="number" id="edit-batch" readonly>
+                    </div>
+                </div>
+
+                <h3>Ingredientes y Composición</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Descripción</th>
+                                <th style="text-align: right;">Cantidad Original</th>
+                                <th style="text-align: right; color: var(--accent);">Nueva Cantidad</th>
+                                <th>Unidad</th>
+                                <th style="text-align: right;">%</th>
+                                <th>Proveedor</th>
+                                <th style="text-align: right; color: var(--success);">Nuevo Costo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ingredients-table-body">
+                            <!-- Inyectado dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Fila de Acciones Principles -->
+                <div class="actions-row">
+                    <button class="btn btn-info" onclick="toggleSaveAsBox()">
+                        ✨ Crear Variación (Guardar Como...)
+                    </button>
+                    <button class="btn btn-primary" onclick="updateCurrentRecipeInMaster()">
+                        💾 Guardar Cambios en Receta Actual
+                    </button>
+                </div>
+
+                <!-- Sub-panel Oculto: Guardar Como Nueva Receta -->
+                <div class="save-as-box" id="save-as-panel">
+                    <h3>Guardar como Nueva Variación de Receta</h3>
+                    <div class="save-as-inputs">
+                        <div class="form-group" style="flex: 2;">
+                            <label>Nuevo Nombre de Receta</label>
+                            <input type="text" id="new-recipe-name" placeholder="Ej: Pan Croissant Mediano">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Nueva Versión</label>
+                            <input type="text" id="new-recipe-version" placeholder="Ej: Version 2.0">
+                        </div>
+                        <button class="btn btn-success" onclick="executeSaveAsNewRecipe()">
+                            ✔️ Confirmar y Añadir Lista
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="card" id="empty-state-card" style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
+                <span style="font-size: 48px; display: block; margin-bottom: 15px;">🍞</span>
+                <p>Por favor, sube un archivo CSV estructurado con tus recetas en el panel izquierdo para comenzar a editarlas o escalar sus pesos.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Repositorio central de recetas indexadas por un ID único generado ("Nombre|||Versión")
+    let masterRecipes = {};
+    let activeRecipeId = null;
+    let currentlyScaledIngredients = []; // Almacena el cálculo temporal activo
+
+    // Escuchar la carga del archivo CSV
+    document.getElementById('csv-file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            try {
+                parseAndBuildMaster(evt.target.result);
+            } catch (err) {
+                alert("Error al procesar el archivo CSV: " + err.message);
+            }
+        };
+        reader.readAsText(file, 'utf-8');
+        this.value = ''; // Limpiar input
+    });
+
+    // Analizador robusto de CSV (gestiona comillas y saltos de línea comunes)
+    function parseAndBuildMaster(csvText) {
+        const lines = csvText.split(/\r?\n/);
+        if (lines.length < 2) return;
+
+        // Limpiar cabecera y remover BOM si existe
+        const headerLine = lines[0].replace(/^\uFEFF/, '');
+        const headers = splitCSVLine(headerLine).map(h => h.trim().toLowerCase());
+
+        // Validar columnas críticas requeridas
+        const required = ['receta', 'version', 'peso unidad', 'unidades deseadas', 'batch deseado (g)', 'cantidad', 'unidad', 'descripcion', '%', 'proveedor', 'costo en receta'];
+        const missing = required.filter(req => !headers.includes(req));
+        if (missing.length > 0) {
+            alert("El CSV carece de las siguientes columnas obligatorias: " + missing.join(', '));
+            return;
+        }
+
+        // Mapear índices de columnas
+        const idxMap = {};
+        headers.forEach((h, i) => { idxMap[h] = i; });
+
+        // Reiniciar repositorio local
+        masterRecipes = {};
+
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            const columns = splitCSVLine(line);
+            if (columns.length < required.length) continue;
+
+            const recName = columns[idxMap['receta']];
+            const version = columns[idxMap['version']];
+            
+            if (!recName || !version) continue;
+
+            const key = `${recName.trim()}|||${version.trim()}`;
+
+            // Inicializar la estructura de la receta si no existe
+            if (!masterRecipes[key]) {
+                masterRecipes[key] = {
+                    receta: recName.trim(),
+                    version: version.trim(),
+                    pesoUnidad: parseFloat(columns[idxMap['peso unidad']]) || 0,
+                    unidadesDeseadas: parseFloat(columns[idxMap['unidades deseadas']]) || 0,
+                    batchDeseado: parseFloat(columns[idxMap['batch deseado (g)']]) || 0,
+                    ingredientes: []
+                };
+            }
+
+            // Añadir fila de ingrediente individual
+            masterRecipes[key].ingredientes.push({
+                cantidadOriginal: parseFloat(columns[idxMap['cantidad']]) || 0,
+                unidad: columns[idxMap['unidad']],
+                descripcion: columns[idxMap['descripcion']],
+                porcentaje: columns[idxMap['%']],
+                proveedor: columns[idxMap['proveedor']],
+                costoOriginal: parseFloat(columns[idxMap['costo en receta']]) || 0
+            });
+        }
+
+        rebuildRecipeListUI();
+        
+        // Seleccionar la primera receta automáticamente si hay datos
+        const keys = Object.keys(masterRecipes);
+        if (keys.length > 0) {
+            loadRecipeIntoEditor(keys[0]);
+        }
+    }
+
+    // Helper para trocear celdas respetando texto entre comillas dobles
+    function splitCSVLine(line) {
+        let result = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            let char = line[i];
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                result.push(current.replace(/^"|"$/g, ''));
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        result.push(current.replace(/^"|"$/g, ''));
+        return result;
+    }
+
+    // Renderizar listado de recetas cargadas en la barra lateral
+    function rebuildRecipeListUI() {
+        const container = document.getElementById('recipe-list-container');
+        const counter = document.getElementById('recipe-count');
+        const keys = Object.keys(masterRecipes);
+
+        counter.innerText = keys.length;
+        container.innerHTML = '';
+
+        if (keys.length === 0) {
+            container.innerHTML = '<div class="no-data">Ninguna receta cargada</div>';
+            document.getElementById('editor-card').style.display = 'none';
+            document.getElementById('empty-state-card').style.display = 'block';
+            return;
+        }
+
+        document.getElementById('editor-card').style.display = 'block';
+        document.getElementById('empty-state-card').style.display = 'none';
+
+        keys.forEach(key => {
+            const r = masterRecipes[key];
+            const div = document.createElement('div');
+            div.className = `recipe-item ${key === activeRecipeId ? 'active' : ''}`;
+            div.onclick = () => loadRecipeIntoEditor(key);
+
+            div.innerHTML = `
+                <strong>🍞 ${r.receta}</strong>
+                <div class="meta">
+                    <span>Versión: ${r.version}</span>
+                    <span>Peso Unidad: <b>${r.pesoUnidad}g</b></span>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    // Cargar receta seleccionada al espacio de trabajo central
+    function loadRecipeIntoEditor(key) {
+        activeRecipeId = key;
+        const r = masterRecipes[key];
+
+        // Rellenar cabeceras en el DOM
+        document.getElementById('edit-receta').value = r.receta;
+        document.getElementById('edit-version').value = r.version;
+        document.getElementById('edit-peso-unidad').value = r.pesoUnidad;
+        document.getElementById('edit-unidades').value = r.unidadesDeseadas;
+        document.getElementById('edit-batch').value = r.batchDeseado;
+
+        document.getElementById('new-recipe-name').value = r.receta;
+        document.getElementById('new-recipe-version').value = r.version + " - Nueva";
+
+        // Ocultar sub-panel de "Guardar como" por defecto al cambiar de receta
+        document.getElementById('save-as-panel').style.display = 'none';
+
+        // Resaltar elemento activo en la lista lateral
+        document.querySelectorAll('.recipe-item').forEach(el => el.classList.remove('active'));
+        rebuildRecipeListUI();
+
+        // Calcular y mostrar de inmediato
+        calculateScaledBatch();
+    }
+
+    // Lógica Matemática de Escalado Dinámico Proporcional
+    function calculateScaledBatch() {
+        if (!activeRecipeId) return;
+
+        const originalRecipe = masterRecipes[activeRecipeId];
+        
+        // Leer valores actuales en los inputs editables
+        const currentPesoUnidad = parseFloat(document.getElementById('edit-peso-unidad').value) || 0;
+        const currentUnidades = parseFloat(document.getElementById('edit-unidades').value) || 0;
+        
+        // Calcular nuevo Batch total deseado (Fórmula: Peso unitario * Cantidad de unidades)
+        const currentBatchTotal = currentPesoUnidad * currentUnidades;
+        document.getElementById('edit-batch').value = currentBatchTotal.toFixed(2);
+
+        // Calcular factor/ratio de escalado respecto a la receta original base
+        // Si el batch original es cero, evitamos división por cero usando factor 1
+        const originalBatchTotal = originalRecipe.batchDeseado || 1;
+        const scaleRatio = currentBatchTotal / originalBatchTotal;
+
+        const tbody = document.getElementById('ingredients-table-body');
+        tbody.innerHTML = '';
+
+        currentlyScaledIngredients = [];
+
+        originalRecipe.ingredientes.forEach(ing => {
+            // Escalar proporcionalmente tanto la cantidad física como su costo derivado
+            const newCantidad = ing.cantidadOriginal * scaleRatio;
+            const newCosto = ing.costoOriginal * scaleRatio;
+
+            currentlyScaledIngredients.push({
+                ...ing,
+                nuevaCantidadCalculada: newCantidad,
+                nuevoCostoCalculado: newCosto
+            });
+
+            // Inyectar fila visual
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><b>${ing.descripcion}</b></td>
+                <td style="text-align: right; color: var(--text-muted);">${ing.cantidadOriginal.toFixed(2)}</td>
+                <td style="text-align: right; font-weight: bold; color: var(--accent);">${newCantidad.toFixed(2)}</td>
+                <td><span style="background: #f1f5f9; padding: 2px 6px; border-radius:4px; font-size:11px;">${ing.unidad}</span></td>
+                <td style="text-align: right;">${ing.porcentaje}</td>
+                <td style="color: var(--text-muted); font-size:12px;">${ing.proveedor}</td>
+                <td style="text-align: right; font-weight: bold; color: var(--success);">$${newCosto.toFixed(4)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // Desplegar u ocultar bloque de "Guardar Como"
+    function toggleSaveAsBox() {
+        const box = document.getElementById('save-as-panel');
+        box.style.display = box.style.display === 'block' ? 'none' : 'block';
+        if(box.style.display === 'block') {
+            box.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    // Acción: Actualizar Receta Actual en Memoria
+    function updateCurrentRecipeInMaster() {
+        if (!activeRecipeId) return;
+
+        const currentPesoUnidad = parseFloat(document.getElementById('edit-peso-unidad').value) || 0;
+        const currentUnidades = parseFloat(document.getElementById('edit-unidades').value) || 0;
+        const currentBatchTotal = parseFloat(document.getElementById('edit-batch').value) || 0;
+
+        // Actualizar valores numéricos raíz en la receta seleccionada
+        masterRecipes[activeRecipeId].pesoUnidad = currentPesoUnidad;
+        masterRecipes[activeRecipeId].unidadesDeseadas = currentUnidades;
+        masterRecipes[activeRecipeId].batchDeseado = currentBatchTotal;
+
+        // Sobrescribir las cantidades originales con los valores que están calculados en pantalla
+        masterRecipes[activeRecipeId].ingredientes = currentlyScaledIngredients.map(ing => ({
+            cantidadOriginal: ing.nuevaCantidadCalculada,
+            unidad: ing.unidad,
+            descripcion: ing.descripcion,
+            porcentaje: ing.porcentaje,
+            proveedor: ing.proveedor,
+            costoOriginal: ing.nuevoCostoCalculado
+        }));
+
+        alert("¡Receta actual actualizada con éxito en la lista de trabajo!");
+        rebuildRecipeListUI();
+        loadRecipeIntoEditor(activeRecipeId);
+    }
+
+    // Acción: "Guardar Como" (Crear nueva receta a partir de los cambios actuales)
+    function executeSaveAsNewRecipe() {
+        const newName = document.getElementById('new-recipe-name').value.trim();
+        const newVersion = document.getElementById('new-recipe-version').value.trim();
+
+        if (!newName || !newVersion) {
+            alert("Por favor introduce un nombre y versión válidos para la nueva variante.");
+            return;
+        }
+
+        const newKey = `${newName}|||${newVersion}`;
+
+        if (masterRecipes[newKey]) {
+            if (!confirm("Ya existe una receta con este nombre y versión combinados. ¿Deseas sobreescribirla?")) {
+                return;
+            }
+        }
+
+        const currentPesoUnidad = parseFloat(document.getElementById('edit-peso-unidad').value) || 0;
+        const currentUnidades = parseFloat(document.getElementById('edit-unidades').value) || 0;
+        const currentBatchTotal = parseFloat(document.getElementById('edit-batch').value) || 0;
+
+        // Construir el nuevo objeto clonado e independiente
+        masterRecipes[newKey] = {
+            receta: newName,
+            version: newVersion,
+            pesoUnidad: currentPesoUnidad,
+            unidadesDeseadas: currentUnidades,
+            batchDeseado: currentBatchTotal,
+            ingredientes: currentlyScaledIngredients.map(ing => ({
+                cantidadOriginal: ing.nuevaCantidadCalculada,
+                unidad: ing.unidad,
+                descripcion: ing.descripcion,
+                porcentaje: ing.porcentaje,
+                proveedor: ing.proveedor,
+                costoOriginal: ing.nuevoCostoCalculado
+            }))
+        };
+
+        alert(`¡Nueva variante "${newName} (${newVersion})" guardada con éxito!`);
+        document.getElementById('save-as-panel').style.display = 'none';
+        
+        rebuildRecipeListUI();
+        loadRecipeIntoEditor(newKey); // Mover el foco del editor a la nueva receta creada
+    }
+
+    // Exportar todo el inventario consolidado y modificado a un archivo CSV plano
+    function exportAllToCSV() {
+        const keys = Object.keys(masterRecipes);
+        if (keys.length === 0) {
+            alert("No hay recetas en memoria para exportar.");
+            return;
+        }
+
+        // Definir exactamente los encabezados solicitados por el usuario
+        const headers = ["receta", "version", "peso unidad", "unidades deseadas", "batch deseado (g)", "cantidad", "unidad", "descripcion", "%", "proveedor", "costo en receta"];
+        let csvRows = [headers.join(",")];
+
+        keys.forEach(key => {
+            const recipe = masterRecipes[key];
+            recipe.ingredientes.forEach(ing => {
+                const row = [
+                    escapeCSVCell(recipe.receta),
+                    escapeCSVCell(recipe.version),
+                    recipe.pesoUnidad,
+                    recipe.unidadesDeseadas,
+                    recipe.batchDeseado,
+                    ing.cantidadOriginal,
+                    escapeCSVCell(ing.unidad),
+                    escapeCSVCell(ing.descripcion),
+                    escapeCSVCell(ing.porcentaje),
+                    escapeCSVCell(ing.proveedor),
+                    ing.costoOriginal
+                ];
+                csvRows.push(row.join(","));
+            });
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.join("\n");
+        const encodedUri = encodeURI(csvContent);
+        
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "Maestro_Recetas_Modificado.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Sanitizar texto para evitar corrupciones por comas dentro del CSV resultante
+    function escapeCSVCell(value) {
+        if (value === null || value === undefined) return '';
+        let str = String(value);
+        if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+            str = str.replace(/"/g, '""');
+            return `"${str}"`;
+        }
+        return str;
+    }
+</script>
+
+</body>
+</html>

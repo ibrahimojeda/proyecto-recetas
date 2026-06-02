@@ -1,0 +1,16 @@
+function cargarSelectMaterias() {
+
+  const select = document.getElementById("ingredienteMP");
+
+  if (!select) return;
+
+  select.innerHTML = "";
+
+  materiasPrimas.forEach((mp, i) => {
+
+    select.innerHTML += `<option value="${i}">
+      ${mp.nombre}
+    </option>`;
+
+  });
+}

@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Herramienta Automatizada: Relleno de Lotes desde PDF</title>
+    <!-- Incluir PDF.js para leer el PDF en el navegador -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <!-- Incluir SheetJS para exportar a Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #d35400; /* Naranja/marrón para diferenciar esta versión PDF */
+            --bg: #f4f6f7;
+            --text: #333;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 850px;
+            width: 100%;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+            margin-top: 20px;
+        }
+        h1 {
+            color: var(--primary);
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        p.subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .drop-zone {
+            border: 2px dashed var(--accent);
+            padding: 45px 20px;
+            text-align: center;
+            background: #fdfefe;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            background: #fdf2e9;
+            border-color: #b03a2e;
+        }
+        .drop-zone p {
+            font-size: 16px;
+            margin: 0 0 10px 0;
+            color: #555;
+        }
+        .file-input {
+            display: none;
+        }
+        .btn {
+            display: inline-block;
+            background-color: var(--accent);
+            color: white;
+            padding: 12px 26px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+            margin-top: 15px;
+        }
+        .btn:hover {
+            background-color: #b03a2e;
+        }
+        .btn:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .status-info {
+            background-color: #ebf5fb;
+            color: #2c3e50;
+            border: 1px solid #a9cce3;
+        }
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .instructions {
+            background: #fdf2e9;
+            border-left: 4px solid var(--accent);
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 0 4px 4px 0;
+        }
+        .instructions h3 {
+            margin: 0 0 8px 0;
+            color: #a04000;
+            font-size: 16px;
+        }
+        .instructions ol {
+            margin: 0;
+            padding-left: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .preview-box {
+            margin-top: 25px;
+            max-height: 350px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            display: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            text-align: left;
+        }
+        th, td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background-color: #f2f2f2;
+            position: sticky;
+            top: 0;
+            color: var(--primary);
+        }
+        .highlight-filled {
+            background-color: #e8f8f5;
+            font-weight: bold;
+            color: #16a085;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Lector y Rellenador de Lotes (PDF Directo)</h1>
+    <p class="subtitle">Alimentos Quantum — Corrección Automatizada de Reportes de Trazabilidad</p>
+
+    <div class="instructions">
+        <h3>¿Cómo usar esta herramienta con tu PDF?</h3>
+        <ol>
+            <li>Arrastra tu archivo original <strong>PDF de Trazabilidad</strong> en el recuadro de abajo (o haz clic para seleccionarlo).</li>
+            <li>La herramienta leerá internamente el texto de cada página del PDF de forma directa.</li>
+            <li>Buscará de forma inteligente las celdas de la columna <strong>Lote ingrediente</strong> que estén vacías o contengan un punto (`.`), y las rellenará usando el lote del bloque del producto correspondiente.</li>
+            <li>Descarga el resultado corregido formateado en un archivo **Excel (.xlsx)** estructurado idénticamente.</li>
+        </ol>
+    </div>
+
+    <div class="drop-zone" id="dropZone">
+        <p><strong>Arrastra aquí tu archivo PDF original</strong></p>
+        <p>o haz clic para explorar tus carpetas</p>
+        <input type="file" id="fileInput" class="file-input" accept=".pdf">
+        <div id="fileInfo" style="margin-top: 10px; font-weight: bold; color: var(--primary);"></div>
+    </div>
+
+    <div style="text-align: center;">
+        <button id="processBtn" class="btn" disabled>Leer y Procesar PDF</button>
+        <button id="downloadBtn" class="btn" style="background-color: #2980b9; display: none;">Descargar Excel Corregido</button>
+    </div>
+
+    <div id="status"></div>
+
+    <div class="preview-box" id="previewBox">
+        <h4 style="padding: 10px 10px 0 10px; margin: 0; color: #555;">Vista previa de los registros recuperados y rellenados:</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Producto</th>
+                    <th>Cantidad Producida</th>
+                    <th>Ingrediente</th>
+                    <th>Lote Ingrediente</th>
+                    <th>Lote Salida</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // Configurar PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const processBtn = document.getElementById('processBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const statusDiv = document.getElementById('status');
+    const previewBox = document.getElementById('previewBox');
+    const fileInfo = document.getElementById('fileInfo');
+    const tableBody = document.getElementById('tableBody');
+
+    let pdfArrayBuffer = null;
+    let originalFileName = "";
+    let finalTableData = [];
+
+    // Drag and drop setup
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if (files.length && files[0].name.endsWith('.pdf')) handleFile(files[0]);
+        else showStatus('Por favor, selecciona únicamente un archivo en formato PDF.', 'error');
+    });
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+
+    function showStatus(message, type) {
+        statusDiv.style.display = 'block';
+        statusDiv.className = `status-${type}`;
+        statusDiv.innerHTML = message;
+    }
+
+    function handleFile(file) {
+        originalFileName = file.name;
+        fileInfo.textContent = `PDF Seleccionado: ${file.name}`;
+        processBtn.disabled = false;
+        downloadBtn.style.display = 'none';
+        previewBox.style.display = 'none';
+        statusDiv.style.display = 'none';
+
+        const reader = new FileReader();
+        reader.readAsArrayBuffer(file);
+        reader.onload = function(e) {
+            pdfArrayBuffer = e.target.result;
+            showStatus('Archivo PDF listo para ser analizado.', 'info');
+        };
+    }
+
+    processBtn.addEventListener('click', async () => {
+        if (!pdfArrayBuffer) return;
+        showStatus('Leyendo páginas del PDF y extrayendo tablas... Por favor espera.', 'info');
+        processBtn.disabled = true;
+
+        try {
+            const pdf = await pdfjsLib.getDocument({ data: pdfArrayBuffer }).promise;
+            let rawLines = [];
+
+            // Recorrer todas las páginas del PDF para extraer las líneas de texto
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                
+                // Agrupar elementos de texto por su posición vertical aproximada (filas)
+                let textItems = textContent.items;
+                // Ordenar por eje Y (descendente) y luego por eje X (ascendiente)
+                textItems.sort((a, b) => b.transform[5] - a.transform[5] || a.transform[4] - b.transform[4]);
+
+                let currentY = null;
+                let currentLine = [];
+
+                for (let item of textItems) {
+                    let text = item.str.trim();
+                    if (!text) continue;
+                    
+                    let y = item.transform[5];
+                    if (currentY === null || Math.abs(currentY - y) > 5) {
+                        if (currentLine.length) rawLines.push(currentLine);
+                        currentLine = [];
+                        currentY = y;
+                    }
+                    currentLine.push(text);
+                }
+                if (currentLine.length) rawLines.push(currentLine);
+            }
+
+            // Procesar las líneas de texto crudo e intentar estructurarlas como tabla
+            let parsedRows = [];
+            let currentProduct = "";
+            let currentCantidad = "";
+            let currentFecha = "";
+            let currentLoteSalida = "";
+
+            for (let line of rawLines) {
+                // Saltar encabezados
+                if (line.includes("Fecha") || line.includes("Producto") || line.includes("Ingrediente") || line.includes("Reporte")) {
+                    continue;
+                }
+
+                // Identificar si es una línea que contiene una fecha válida (patrón YYYY-MM-DD o parcial)
+                let hasDate = line.some(t => t.match(/^202\d-\d{2}-\d{2}$/) || t.startsWith("2026-"));
+                
+                if (hasDate && line.length >= 4) {
+                    // Es una fila de inicio de bloque de producción
+                    currentFecha = line.find(t => t.startsWith("2026-")) || currentFecha;
+                    
+                    // Buscar lote de salida (generalmente un número largo al final, como 61220106 o similar)
+                    let outLoteIndex = line.findIndex(t => t.match(/^\d{6,10}$/));
+                    if (outLoteIndex !== -1) {
+                        currentLoteSalida = line[outLoteIndex];
+                    }
+
+                    // Intentar extraer el producto
+                    // El producto suele estar después de la fecha
+                    let dateIdx = line.findIndex(t => t.startsWith("2026-"));
+                    if (dateIdx !== -1 && line[dateIdx + 1]) {
+                        currentProduct = line[dateIdx + 1];
+                        // Si la cantidad está pegada o separada
+                        if (line[dateIdx + 2] && !isNaN(parseFloat(line[dateIdx + 2]))) {
+                            currentCantidad = line[dateIdx + 2];
+                        }
+                    }
+
+                    // El ingrediente y el lote ingrediente
+                    let ingrediente = "";
+                    let loteIngrediente = "";
+
+                    // Asignación heurística por posición
+                    let possibleIngrediente = line.find(t => t.toUpperCase() === t && t.length > 4 && isNaN(t) && !t.startsWith("2026-"));
+                    if (possibleIngrediente) ingrediente = possibleIngrediente;
+
+                    // Si en esta primera fila de bloque hay un lote de ingrediente (anterior al de salida)
+                    if (outLoteIndex > 0) {
+                        let potentialLoteIng = line[outLoteIndex - 1];
+                        if (potentialLoteIng !== ingrediente && potentialLoteIng !== currentCantidad) {
+                            loteIngrediente = potentialLoteIng;
+                        }
+                    }
+
+                    parsedRows.push({
+                        fecha: currentFecha,
+                        producto: currentProduct,
+                        cantidad: currentCantidad,
+                        ingrediente: ingrediente || "Ver en PDF",
+                        loteIngrediente: loteIngrediente || ".",
+                        loteSalida: currentLoteSalida,
+                        isFilled: false
+                    });
+
+                } else if (line.length >= 1) {
+                    // Es una fila de ingrediente secundario del mismo producto continuo
+                    let ingrediente = line[0];
+                    let loteIngrediente = ".";
+                    
+                    // Si la línea tiene más elementos, buscar el lote
+                    if (line.length > 1) {
+                        // Si trae el lote de salida repetido al final, lo quitamos para buscar el de ingrediente
+                        let lastItem = line[line.length - 1];
+                        if (lastItem === currentLoteSalida && line.length > 2) {
+                            loteIngrediente = line[line.length - 2];
+                        } else if (lastItem !== currentLoteSalida) {
+                            loteIngrediente = lastItem;
+                        }
+                    }
+
+                    parsedRows.push({
+                        fecha: currentFecha || "2026-05-03",
+                        producto: currentProduct || "Producto Continuo",
+                        cantidad: currentCantidad,
+                        ingrediente: ingrediente,
+                        loteIngrediente: loteIngrediente,
+                        loteSalida: currentLoteSalida,
+                        isFilled: false
+                    });
+                }
+            }
+
+            // APLICAR ALGORITMO DE RELLENO INTELIGENTE SOBRE LOS DATOS DEL PDF
+            let filledCount = 0;
+            for (let i = 0; i < parsedRows.length; i++) {
+                let row = parsedRows[i];
+                let valLote = row.loteIngrediente.trim();
+
+                if (valLote === "." || valLote === "" || valLote === "undefined") {
+                    // Buscar hacia arriba el lote real del ingrediente en el mismo bloque de salida
+                    let foundLote = "";
+                    for (let j = i - 1; j >= 0; j--) {
+                        if (parsedRows[j].loteSalida === row.loteSalida) {
+                            let prevVal = parsedRows[j].loteIngrediente.trim();
+                            if (prevVal !== "." && prevVal !== "" && prevVal !== "undefined") {
+                                foundLote = prevVal;
+                                break;
+                            }
+                        } else {
+                            break; // Fin del bloque consecutivo
+                        }
+                    }
+
+                    // Si no se encontró hacia arriba, buscar el primer lote válido del bloque hacia abajo
+                    if (!foundLote) {
+                        for (let j = i + 1; j < parsedRows.length; j++) {
+                            if (parsedRows[j].loteSalida === row.loteSalida) {
+                                let nextVal = parsedRows[j].loteIngrediente.trim();
+                                if (nextVal !== "." && nextVal !== "" && nextVal !== "undefined") {
+                                    foundLote = nextVal;
+                                    break;
+                                }
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+
+                    if (foundLote) {
+                        row.loteIngrediente = foundLote;
+                        row.isFilled = true;
+                        filledCount++;
+                    } else {
+                        // Si el bloque entero carece de lote específico, por regla de negocio de Quantum,
+                        // se vincula directo con su lote de salida de producción para no dejar celdas vacías.
+                        row.loteIngrediente = row.loteSalida;
+                        row.isFilled = true;
+                        filledCount++;
+                    }
+                }
+            }
+
+            finalTableData = parsedRows;
+            showStatus(`¡PDF leído con éxito! Se procesaron todas las páginas y se rellenaron automáticamente <strong>${filledCount}</strong> celdas de lotes con puntos o vacías.`, 'success');
+            downloadBtn.style.display = 'inline-block';
+            
+            // Renderizar la tabla de vista previa
+            renderPreviewTable(finalTableData);
+
+        } catch (error) {
+            console.error(error);
+            showStatus('Error al interpretar el archivo PDF de forma directa. Asegúrate de que no esté protegido por contraseña o dañado.', 'error');
+            processBtn.disabled = false;
+        }
+    });
+
+    function renderPreviewTable(data) {
+        tableBody.innerHTML = "";
+        // Mostrar máximo 40 filas en la vista previa
+        const itemsToPreview = data.slice(0, 40);
+
+        itemsToPreview.forEach(row => {
+            const tr = document.createElement('tr');
+            
+            tr.innerHTML = `
+                <td>${row.fecha}</td>
+                <td>${row.producto}</td>
+                <td>${row.cantidad}</td>
+                <td>${row.ingrediente}</td>
+                <td class="${row.isFilled ? 'highlight-filled' : ''}">${row.loteIngrediente}</td>
+                <td>${row.loteSalida}</td>
+            `;
+            tableBody.appendChild(tr);
+        });
+
+        previewBox.style.display = 'block';
+    }
+
+    downloadBtn.addEventListener('click', () => {
+        if (!finalTableData.length) return;
+
+        // Convertir el arreglo plano a un formato apto para Excel con los encabezados limpios
+        const excelRows = finalTableData.map(r => ({
+            "Fecha": r.fecha,
+            "Producto": r.producto,
+            "Cantidad producida": r.cantidad,
+            "Ingrediente": r.ingrediente,
+            "Lote ingrediente": r.loteIngrediente,
+            "Lote salida": r.loteSalida
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(excelRows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Trazabilidad Mayo 2026");
+
+        // Guardar con nombre descriptivo basado en el original
+        let cleanName = originalFileName.replace('.pdf', '') + '_RELLENADO.xlsx';
+        XLSX.writeFile(workbook, cleanName);
+    });
+</script>
+
+</body>
+</html>

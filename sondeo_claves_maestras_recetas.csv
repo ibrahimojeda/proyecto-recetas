@@ -1,0 +1,69 @@
+recetaId,receta,metodo,claveMaestra,frasesUnicas,tokensUnicos
+id-mohzqdxn-haacvx,1000,token-unico,1000,,1000
+id-mohzqdxk-3yc24e,Alfajores de Dulce de Leche,frase-unica,alfajores dulce,alfajores dulce,alfajores
+id-mohzqdxq-6nxeej,Biscocho Vainilla,frase-unica,biscocho vainilla,biscocho vainilla,biscocho
+id-mohuryrp-7sxe4l,Boquita Salada surtida,frase-unica,boquita salada,boquita salada | salada surtida,boquita | salada | surtida
+id-mohzqdxr-cmjth1,Brownie Porcion de Caja,frase-unica,brownie porcion,brownie porcion | porcion caja,brownie | porcion | caja
+id-mohzqdxp-1c52bw,Cake ChocoChip,frase-unica,cake chocochip,cake chocochip,chocochip
+id-mohzqdxp-bs5hit,Cake de Guineo,frase-unica,cake guineo,cake guineo,guineo
+id-mohzqdxp-lketqu,Cake Marmoleado,frase-unica,cake marmoleado,cake marmoleado,marmoleado
+id-mohzqdxq-wxpmo5,Cake Vainilla (Media Plancha),frase-unica,vainilla media,vainilla media | media plancha,media | plancha
+id-mohzqdxq-ylqys9,Cake Vainilla (Volteado de Piña),frase-unica,vainilla volteado,vainilla volteado | volteado pina,volteado | pina
+id-mohzqdxn-ki5ei4,Cantidad,token-unico,cantidad,,cantidad
+id-mohzqdx8-aqasg2,Cheesecake,sin-clave-directa,,,
+id-mohzqdxh-uh6g1q,Cheesecake Blueberry Keto,frase-unica,cheesecake blueberry,cheesecake blueberry | blueberry keto,blueberry
+id-mohzqdxj-ivfba9,Cheesecake de Fresa,sin-clave-directa,,,
+id-mohzqdxm-lbf82f,Cheesecake de Mango,frase-unica,cheesecake mango,cheesecake mango,mango
+id-mohzqdxi-4iorox,Cheesecake de Maracuya,frase-unica,cheesecake maracuya,cheesecake maracuya,maracuya
+id-mohzqdxh-3bx0j4,Cheesecake de Oreo,frase-unica,cheesecake oreo,cheesecake oreo,oreo
+id-mohzqdxg-uf0shk,Cheesecake Fresa Keto,frase-unica,fresa keto,fresa keto,
+id-mohzqdxa-mv3by0,Cheesecake Keto,frase-unica,cheesecake keto,cheesecake keto,
+id-mohzqdxp-w58mle,Compota de Manzana,frase-unica,compota manzana,compota manzana,compota
+id-mohuryrq-ab74h7,Empanada Epa,frase-unica,empanada epa,empanada epa,empanada | epa
+id-mohuryrp-3fyc6v,Empanadita Rellena Mozzarela,frase-unica,rellena mozzarela,rellena mozzarela,mozzarela
+id-mohuryrp-v2fk4u,Empanadita Rellena Pizza,frase-unica,rellena pizza,rellena pizza,pizza
+id-mohzqdxj-wh7r5g,Flan,token-unico,flan,,flan
+id-mohzqdxq-d4s8m5,Galleta de avena,frase-unica,galleta avena,galleta avena,avena
+id-mohzqdxq-4j18d9,Galleta Naranja,sin-clave-directa,,,
+id-mohzqdxq-71p15a,Galleta Naranja Dulce de leche,frase-unica,naranja dulce,naranja dulce,
+id-mohzqdxk-14fb7z,Galletas para Tartaleta,frase-unica,galletas tartaleta,galletas tartaleta,galletas | tartaleta
+id-mohzqdxn-jbz8gp,Ganache de Chocolate,frase-unica,ganache chocolate,ganache chocolate,ganache
+id-mohzqdxo-09j02k,Glaseado Blanco,frase-unica,glaseado blanco,glaseado blanco,glaseado
+id-mohuryro-v08r2u,Hamburguesa,sin-clave-directa,,,
+id-mohuryrr-0r8h8r,Hamburguesa Pan BON,frase-unica,hamburguesa pan,hamburguesa pan | pan bon,bon
+id-mohzqdxm-kpx1rs,Keke de Naranja,frase-unica,keke naranja,keke naranja,keke
+id-mohuryro-5a3xnd,Mil Hojas,frase-unica,mil hojas,mil hojas,mil | hojas
+id-mohzqdxl-ml2vwx,Mosse de Chocolate,frase-unica,mosse chocolate,mosse chocolate,mosse
+id-mohzqdxl-xovna1,Muffin de Arandanos,frase-unica,muffin arandanos,muffin arandanos,arandanos
+id-mohzqdxk-483dy2,Muffin de Chocolate (30gr),frase-unica,muffin chocolate,muffin chocolate | chocolate 30gr,30gr
+id-mohzqdxn-oz6w0o,Muffin de Manzana,frase-unica,muffin manzana,muffin manzana,
+id-mohuryrn-altpis,Pan Baguette Blanco,frase-unica,pan baguette,pan baguette | baguette blanco,
+id-mohuryro-r4u3tb,Pan Ciabatta,frase-unica,pan ciabatta,pan ciabatta,ciabatta
+id-mohuryro-9aqfpf,Pan Croisant 35g,frase-unica,croisant 35g,croisant 35g,35g
+id-mohuryrq-75msu3,Pan Croisant 65g con Jamon y Queso,frase-unica,croisant 65g,croisant 65g | 65g jamon | jamon queso,65g | jamon
+id-mohuryre-potqax,Pan de Coco,frase-unica,pan coco,pan coco,coco
+id-mohuryrl-7sv7rn,Pan de La Arena,frase-unica,pan arena,pan arena,arena
+id-mohuryrn-xhzh5q,Pan de Leche tipo Baguette,frase-unica,pan leche,pan leche | leche tipo | tipo baguette,tipo
+id-mohuryr7-bumn86,Pan Flauta,frase-unica,pan flauta,pan flauta,flauta
+id-mohuryre-9jnnye,Pan Frances,frase-unica,pan frances,pan frances,frances
+id-mohuryrp-vq6uzs,Pan Guayaba y Queso,frase-unica,pan guayaba,pan guayaba | guayaba queso,guayaba
+id-mohuryrm-nz03ui,Pan Integral Bagette,frase-unica,integral bagette,integral bagette,bagette
+id-mohuryrm-9dzk42,Pan Integral Cuadrado,frase-unica,integral cuadrado,integral cuadrado,cuadrado
+id-mohuryrr-oqfq8y,Pan Molde blanco,sin-clave-directa,,,
+id-mohuryrn-zjpjko,Pan Molde Blanco,sin-clave-directa,,,
+id-mohuryri-opcu1o,Pan Molde Harina e Almendras,frase-unica,molde harina,molde harina | harina almendras,harina | almendras
+id-mohuryrg-wwcsd3,Pan Molde Integral,frase-unica,molde integral,molde integral,
+id-mohuryrh-wdl85j,Pan Molde Multigranos,frase-unica,molde multigranos,molde multigranos,
+id-mohuryrf-wk71cr,Pan Molde Pasitas,frase-unica,molde pasitas,molde pasitas,pasitas
+id-mohuryrm-rtppb5,Pan Multigranos Baguette,frase-unica,pan multigranos,pan multigranos | multigranos baguette,
+id-mohuryrd-9wvvmg,Pan Piñita,frase-unica,pan pinita,pan pinita,pinita
+id-mohuryrp-fnavbv,Pan Queso Crema y Mozarella,frase-unica,pan queso,pan queso | queso crema | crema mozarella,crema | mozarella
+id-mohuryrj-tf4jq5,Pan Rosca,frase-unica,pan rosca,pan rosca,rosca
+id-mohuryrp-1cr5rq,Pañuelo de Manzana,frase-unica,panuelo manzana,panuelo manzana,panuelo
+id-mohzqdxc-d6hmc2,Pastel de Zanahoria,sin-clave-directa,,,
+id-mohzqdxa-9rqq5w,Pastel de Zanahoria con nueces,frase-unica,zanahoria nueces,zanahoria nueces,nueces
+id-mohuryrq-1ogkok,Quesito con parmesano,frase-unica,quesito parmesano,quesito parmesano,quesito | parmesano
+id-mohzqdxk-2q9ctv,Tiramisu Halal,frase-unica,tiramisu halal,tiramisu halal,tiramisu | halal
+id-mohzqdxq-5hvq1r,Torta Angelica,frase-unica,torta angelica,torta angelica,torta | angelica
+id-mohzqdxd-anf99z,Tres Leche,frase-unica,tres leche,tres leche,tres
+id-mohzqdxe-tlqeqo,Unidades,token-unico,unidades,,unidades

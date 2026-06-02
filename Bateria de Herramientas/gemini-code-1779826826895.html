@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Recetas y Costos — Alimentos Quantum</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #16a085;
+            --accent: #e67e22;
+            --bg: #f5f7fa;
+            --text: #34495e;
+            --card-bg: #ffffff;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+        }
+        header {
+            text-align: center;
+            border-bottom: 3px solid #eceff1;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: var(--primary);
+            margin: 0;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+        .file-upload-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            border: 2px dashed #bdc3c7;
+            background-color: #fcfdfd;
+            padding: 30px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 30px;
+        }
+        .file-upload-wrapper:hover {
+            border-color: var(--secondary);
+            background-color: #f2f9f8;
+        }
+        .file-upload-wrapper input[type="file"] {
+            display: none;
+        }
+        .upload-btn {
+            background-color: var(--primary);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-top: 10px;
+            display: inline-block;
+        }
+        .status-msg {
+            margin-top: 10px;
+            font-weight: bold;
+            color: var(--secondary);
+        }
+        .workspace {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 25px;
+        }
+        .sidebar {
+            background: #fafbfc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .sidebar h3 {
+            margin-top: 0;
+            color: var(--primary);
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+        .recipe-item {
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            background: white;
+            border: 1px solid #edf2f7;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .recipe-item:hover {
+            background: #edf2f7;
+            border-color: #cbd5e1;
+        }
+        .recipe-item.active {
+            background-color: var(--secondary);
+            color: white;
+            border-color: var(--secondary);
+        }
+        .main-panel {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 25px;
+            display: none;
+        }
+        .recipe-meta-box {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border-left: 4px solid var(--secondary);
+        }
+        .meta-card span {
+            display: block;
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .meta-card strong {
+            font-size: 18px;
+            color: var(--primary);
+        }
+        .interactive-controls {
+            background: #fff3e0;
+            border: 1px solid #ffe0b2;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .interactive-controls label {
+            font-weight: bold;
+            color: #e65100;
+        }
+        .input-factor {
+            width: 100px;
+            padding: 8px 12px;
+            font-size: 16px;
+            border: 2px solid #ffcc80;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .input-factor:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background-color: var(--primary);
+            color: white;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+        tr:hover {
+            background-color: #f8fafc;
+        }
+        .total-row {
+            background-color: #f1f5f9;
+            font-weight: bold;
+            font-size: 15px;
+        }
+        .text-right {
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Calculadora de Producción y Costos</h1>
+        <div class="subtitle">Alimentos Quantum — Módulo de Panadería y Pastelería Basado en Fórmulas</div>
+    </header>
+
+    <div class="file-upload-wrapper" onclick="document.getElementById('csvFileInput').click()">
+        <p style="margin: 0 0 10px 0; font-size: 16px; color: #475569;">
+            <strong>Arrastra o selecciona el archivo CSV de Recetas</strong>
+        </p>
+        <p style="margin: 0; font-size: 13px; color: #94a3b8;">Compatible con estructuras horizontales y verticales de Costos Gates</p>
+        <div class="upload-btn">Buscar Archivo</div>
+        <input type="file" id="csvFileInput" accept=".csv">
+        <div id="statusOutput" class="status-msg"></div>
+    </div>
+
+    <div class="workspace">
+        <div class="sidebar">
+            <h3>Productos (<span id="recipeCount">0</span>)</h3>
+            <div id="recipeList">
+                <p style="color: #94a3b8; font-size: 13px;">Sube un archivo para cargar el catálogo.</p>
+            </div>
+        </div>
+
+        <div class="main-panel" id="mainPanel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 id="recipeTitle" style="margin: 0; color: var(--primary);">Nombre de Receta</h2>
+                <span id="recipeVersion" style="background: #e2e8f0; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold;">-</span>
+            </div>
+
+            <div class="interactive-controls">
+                <label for="productionUnits">¿Cuántas unidades deseas producir hoy?</label>
+                <input type="number" id="productionUnits" class="input-factor" value="1" min="1">
+                <span style="color: #64748b; font-size: 13px;">(El sistema recalculará el pesaje e ingredientes automáticamente)</span>
+            </div>
+
+            <div class="recipe-meta-box">
+                <div class="meta-card">
+                    <span>Peso Unidad Base</span>
+                    <strong id="metaWeight">-</strong>
+                </div>
+                <div class="meta-card">
+                    <span>Batch Original</span>
+                    <strong id="metaBatchBase">-</strong>
+                </div>
+                <div class="meta-card">
+                    <span>Costo Unitario Base</span>
+                    <strong id="metaCostUnit">-</strong>
+                </div>
+            </div>
+
+            <h3>Materiales Requeridos para el Lote</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Descripción del Material</th>
+                        <th class="text-right">Cantidad Requerida</th>
+                        <th>Unidad</th>
+                        <th class="text-right">Porcentaje (%)</th>
+                        <th>Proveedor Sugerido</th>
+                        <th class="text-right">Costo Estimado</th>
+                    </tr>
+                </thead>
+                <tbody id="ingredientsTableBody">
+                    </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td>TOTALES DEL LOTE ACTUAL</td>
+                        <td id="totalWeightSum" class="text-right">-</td>
+                        <td>gr</td>
+                        <td class="text-right">100%</td>
+                        <td>-</td>
+                        <td id="totalCostSum" class="text-right">-</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    let recipesDatabase = {};
+    let selectedRecipeName = null;
+
+    // Listener para procesamiento del archivo local
+    document.getElementById('csvFileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        document.getElementById('statusOutput').innerText = "Procesando: " + file.name + "...";
+        
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            parseRecipesCSV(event.target.result);
+        };
+        reader.readAsText(file, 'UTF-8');
+    });
+
+    // Parser inteligente adaptativo para formatos horizontales/verticales de Quantum
+    function parseRecipesCSV(text) {
+        const lines = text.split('\n').map(line => {
+            // Manejo básico de comas dentro de las celdas de texto
+            return line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(cell => cell.replace(/^"|"\r?$/g, '').trim());
+        });
+
+        recipesDatabase = {};
+
+        // Validar si es el formato unificado plano vertical (revisando si el encabezado contiene palabras clave)
+        if (lines[0][0].toLowerCase() === 'receta' || lines[0][0].toLowerCase() === 'producto') {
+            parseVerticalFormat(lines);
+        } else {
+            parseHorizontalParallelFormat(lines);
+        }
+
+        renderRecipeCatalog();
+    }
+
+    // Algoritmo 1: Formato unificado vertical
+    function parseVerticalFormat(lines) {
+        for (let i = 1; i < lines.length; i++) {
+            let row = lines[i];
+            if (row.length < 6 || !row[0]) continue;
+
+            let name = row[0];
+            let version = row[1] || "V1.0";
+            let pesoUnidad = parseFloat(row[2]) || 0;
+            let unidadesDeseadas = parseFloat(row[3]) || 1;
+            let batchBase = parseFloat(row[4]) || 0;
+            
+            let cantidad = parseFloat(row[5]);
+            let unidad = row[6] || "gr";
+            let descripcion = row[7];
+            let porcentaje = row[8] || "0";
+            let proveedor = row[9] || "N/A";
+            let costo = parseFloat(row[10]) || 0;
+
+            if (!descripcion) continue;
+
+            if (!recipesDatabase[name]) {
+                recipesDatabase[name] = {
+                    version: version,
+                    pesoUnidad: pesoUnidad,
+                    batchBase: batchBase || (pesoUnidad * unidadesDeseadas),
+                    unidadesDeseadasBase: unidadesDeseadas,
+                    ingredientes: []
+                };
+            }
+
+            recipesDatabase[name].ingredientes.push({
+                cantidadBase: cantidad / unidadesDeseadas, // Guardamos la base unitaria pura
+                unidad: unidad,
+                descripcion: descripcion,
+                porcentaje: porcentaje,
+                proveedor: proveedor,
+                costoBase: costo / unidadesDeseadas
+            });
+        }
+    }
+
+    // Algoritmo 2: Formato clásico de bloques de columnas paralelas (Hoja de cálculo tradicional)
+    function parseHorizontalParallelFormat(lines) {
+        const firstRow = lines[0];
+        let blocks = [];
+
+        // Identificar los índices donde comienzan las columnas de recetas
+        for (let c = 0; c < firstRow.length; c++) {
+            if (firstRow[c] && firstRow[c] !== "" && !firstRow[c].toLowerCase().includes("unnamed")) {
+                blocks.push({ name: firstRow[c], startCol: c });
+            }
+        }
+
+        blocks.forEach((block) => {
+            let start = block.startCol;
+            if (lines.length < 6) return;
+
+            let version = lines[1][start + 1] || "V2.0";
+            let pesoUnidad = parseFloat(lines[3][start + 1]) || 0;
+            let unidadesDeseadas = parseFloat(lines[3][start + 3]) || 1;
+            let batchBase = parseFloat(lines[4][start + 1]) || 0;
+
+            let ingredientes = [];
+
+            // Los ingredientes comienzan típicamente después de los encabezados (fila index 7 en adelante)
+            for (let r = 7; r < lines.length; r++) {
+                if (!lines[r] || lines[r].length <= start || !lines[r][start + 2]) continue;
+
+                let cantidad = parseFloat(lines[r][start]);
+                let unidad = lines[r][start + 1];
+                let descripcion = lines[r][start + 2];
+                let porcentaje = lines[r][start + 3];
+                let proveedor = lines[r][start + 4];
+                let costo = parseFloat(lines[r][start + 5]);
+
+                if (isNaN(cantidad) || !descripcion || descripcion === "") continue;
+
+                ingredientes.push({
+                    cantidadBase: cantidad / unidadesDeseadas,
+                    unidad: unidad || "gr",
+                    descripcion: descripcion,
+                    porcentaje: porcentaje,
+                    proveedor: proveedor || "Melo / Gold Mills",
+                    costoBase: isNaN(costo) ? 0 : (costo / unidadesDeseadas)
+                });
+            }
+
+            recipesDatabase[block.name] = {
+                version: version,
+                pesoUnidad: pesoUnidad,
+                batchBase: batchBase,
+                unidadesDeseadasBase: unidadesDeseadas,
+                ingredientes: ingredientes
+            };
+        });
+    }
+
+    // Actualizar el catálogo visual izquierdo
+    function renderRecipeCatalog() {
+        const listContainer = document.getElementById('recipeList');
+        const countSpan = document.getElementById('recipeCount');
+        listContainer.innerHTML = "";
+
+        const keys = Object.keys(recipesDatabase);
+        countSpan.innerText = keys.length;
+
+        if (keys.length === 0) {
+            listContainer.innerHTML = '<p style="color: #94a3b8; font-size: 13px;">No se encontraron datos válidos.</p>';
+            document.getElementById('statusOutput').innerText = "Error al interpretar las celdas.";
+            return;
+        }
+
+        document.getElementById('statusOutput').innerText = "¡Catálogo cargado con éxito!";
+
+        keys.forEach(name => {
+            let div = document.createElement('div');
+            div.className = "recipe-item";
+            div.innerText = name;
+            div.onclick = function() {
+                // Manejo de clases activas
+                document.querySelectorAll('.recipe-item').forEach(el => el.classList.remove('active'));
+                div.classList.add('active');
+                selectRecipe(name);
+            };
+            listContainer.appendChild(div);
+        });
+    }
+
+    // Seleccionar y cargar datos en el panel principal
+    function selectRecipe(name) {
+        selectedRecipeName = name;
+        document.getElementById('mainPanel').style.display = 'block';
+        document.getElementById('productionUnits').value = recipesDatabase[name].unidadesDeseadasBase || 1;
+        calculateAndRenderCalculations();
+    }
+
+    // Escuchar el input interactivo de cambio numérico de producción diaria
+    document.getElementById('productionUnits').addEventListener('input', function() {
+        if (selectedRecipeName) calculateAndRenderCalculations();
+    });
+
+    // Ejecutar multiplicadores y actualización de tablas en caliente
+    function calculateAndRenderCalculations() {
+        const recipe = recipesDatabase[selectedRecipeName];
+        const targetUnits = parseFloat(document.getElementById('productionUnits').value) || 0;
+
+        document.getElementById('recipeTitle').innerText = selectedRecipeName;
+        document.getElementById('recipeVersion').innerText = recipe.version;
+        document.getElementById('metaWeight').innerText = recipe.pesoUnidad + " g";
+        document.getElementById('metaBatchBase').innerText = recipe.batchBase + " g";
+
+        const tbody = document.getElementById('ingredientsTableBody');
+        tbody.innerHTML = "";
+
+        let accumWeight = 0;
+        let accumCost = 0;
+
+        recipe.ingredientes.forEach(ing => {
+            // Factor dinámico unitario multiplicado por el objetivo de producción introducido
+            let dynamicQty = ing.cantidadBase * targetUnits;
+            let dynamicCost = ing.costoBase * targetUnits;
+
+            accumWeight += dynamicQty;
+            accumCost += dynamicCost;
+
+            // Formatear porcentajes legibles
+            let displayPerc = ing.porcentaje;
+            if (!displayPerc.includes('%')) {
+                let pNum = parseFloat(displayPerc);
+                displayPerc = isNaN(pNum) ? ing.porcentaje : (pNum * 100).toFixed(1) + "%";
+            }
+
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${ing.descripcion}</strong></td>
+                <td class="text-right" style="color: #2c3e50; font-weight: bold;">${dynamicQty.toFixed(2)}</td>
+                <td>${ing.unidad}</td>
+                <td class="text-right">${displayPerc}</td>
+                <td style="color: #475569; font-size: 13px;">${ing.proveedor}</td>
+                <td class="text-right" style="color: #2e7d32; font-weight: bold;">$${dynamicCost.toFixed(4)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Mostrar totales e indicadores clave calculados
+        document.getElementById('metaCostUnit').innerText = "$" + (accumCost / targetUnits).toFixed(4);
+        document.getElementById('totalWeightSum').innerText = accumWeight.toFixed(2);
+        document.getElementById('totalCostSum').innerText = "$" + accumCost.toFixed(4);
+    }
+</script>
+
+</body>
+</html>
