@@ -10714,13 +10714,44 @@
     document.getElementById("costeoPesoUnidad").addEventListener("change", () => applyRealtimeWeightNormalization(true));
     document.getElementById("costeoUnidadesDeseadas").addEventListener("change", () => applyRealtimeWeightNormalization(true));
 
+    // initialize inputs and state
     setupMoneyInputs();
     loadState();
     window.state = state;
-    renderAll();
-    renderAiRecipePreview();
-    tryAutoBridgeFromFileOrigin();
-    tryAutoImportRecoveryStateOnHttp();
+
+    // Try to recover state from server or seed file when running on HTTP
+    async function tryLoadSeedState() {
+      try {
+        // if we already have recipes, skip
+        if (Array.isArray(state.recetas) && state.recetas.length > 0) return;
+        const res = await fetch('/data/seed-state.json');
+        if (!res.ok) return;
+        const payload = await res.json();
+        const imported = payload?.state && typeof payload.state === 'object' ? payload.state : payload;
+        if (!isStateLikeObject(imported)) return;
+        // merge imported into current state but preserve existing arrays where present
+        state = Object.assign({}, state, {
+          materiasPrimas: Array.isArray(imported.materiasPrimas) ? imported.materiasPrimas : state.materiasPrimas,
+          recetas: Array.isArray(imported.recetas) ? imported.recetas : state.recetas,
+          lots: Array.isArray(imported.lots) ? imported.lots : state.lots,
+          lotMovements: Array.isArray(imported.lotMovements) ? imported.lotMovements : state.lotMovements,
+          warehouses: Array.isArray(imported.warehouses) ? imported.warehouses : state.warehouses,
+          productionReports: Array.isArray(imported.productionReports) ? imported.productionReports : state.productionReports
+        });
+        saveState();
+        console.info('Seed state loaded from /data/seed-state.json');
+      } catch (err) {
+        console.debug('No seed-state.json found or failed to load', err);
+      }
+    }
+
+    (async function initAsync() {
+      try { await tryAutoImportRecoveryStateOnHttp(); } catch (e) { /* ignore */ }
+      try { await tryLoadSeedState(); } catch (e) { /* ignore */ }
+      renderAll();
+      renderAiRecipePreview();
+      tryAutoBridgeFromFileOrigin();
+    })();
   </script>
 </body>
 </html>
