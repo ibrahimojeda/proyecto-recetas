@@ -1,0 +1,9 @@
+<h2>Datos de Receta</h2>
+
+<input id="recetaNombre" placeholder="Nombre receta">
+<textarea id="recetaDescripcion"></textarea>
+
+<button onclick="guardarDatosReceta()">Guardar</button>
+<button onclick="irIngredientes()">Continuar</button>
+<button onclick="irInicio()">Volver</button>
+<div id="estadoReceta"></div>

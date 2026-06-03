@@ -1,0 +1,19 @@
+function calcularCostoBase() {
+
+  let total = 0;
+
+  receta.ingredientes.forEach(i => {
+
+    const unitario =
+      i.materiaPrima.precioEmpaque /
+      i.materiaPrima.cantidadEmpaque;
+
+    total += unitario * i.cantidad;
+
+  });
+
+  receta.costoBase = total;
+}
+function costoPorUnidad() {
+  return receta.costoBase / receta.produccion;
+}

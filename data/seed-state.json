@@ -1,0 +1,27 @@
+{
+  "recetas": [
+    {
+      "id": "seed-001",
+      "nombre": "Pan de prueba",
+      "tipo": "panaderia",
+      "descripcion": "Receta de ejemplo cargada por defecto.",
+      "produccion": 20,
+      "ingredientes": [
+        { "nombre": "Harina", "cantidad": 1000, "unidad": "gr" },
+        { "nombre": "Agua", "cantidad": 600, "unidad": "ml" },
+        { "nombre": "Sal", "cantidad": 20, "unidad": "gr" }
+      ],
+      "fichaTecnica": {
+        "caseCode": "PN",
+        "subcategoria": "B",
+        "fresco": "1",
+        "serial": 1,
+        "imageBase64": ""
+      }
+    }
+  ],
+  "materiasPrimas": [
+    { "id": "mp-1", "nombre": "Harina", "unidadBase": "gr", "precioEmpaque": 0.5 },
+    { "id": "mp-2", "nombre": "Agua", "unidadBase": "ml", "precioEmpaque": 0.0 }
+  ]
+}

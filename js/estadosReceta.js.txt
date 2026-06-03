@@ -1,0 +1,25 @@
+const ESTADOS = {
+  BORRADOR: "BORRADOR",
+  EDICION: "EDICION",
+  CALCULADA: "CALCULADA",
+  PDF: "PDF"
+};
+function actualizarEstadoReceta() {
+
+  if (!receta.ingredientes || receta.ingredientes.length === 0) {
+    receta.estado = ESTADOS.BORRADOR;
+    return;
+  }
+
+  if (receta.pdfGenerado) {
+    receta.estado = ESTADOS.PDF;
+    return;
+  }
+
+  if (receta.vioResumen) {
+    receta.estado = ESTADOS.CALCULADA;
+    return;
+  }
+
+  receta.estado = ESTADOS.EDICION;
+}

@@ -1,0 +1,56 @@
+<div class="space-y-10">
+    <!-- Formulario de Entrada de Inventario -->
+    <section class="bg-white p-8 rounded-[2rem] border border-emerald-100 shadow-sm">
+        <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-8 flex items-center gap-2">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i> Registrar Nuevo Insumo
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-500 ml-1">Materia Prima</label>
+                <input id="mpNombre" type="text" placeholder="Ej: Harina 000" class="w-full px-4 py-3 rounded-xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-organic-green outline-none transition-all">
+            </div>
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-500 ml-1">Proveedor</label>
+                <input id="mpProveedor" type="text" placeholder="Distribuidora X" class="w-full px-4 py-3 rounded-xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-organic-green outline-none transition-all">
+            </div>
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-500 ml-1">Unidad</label>
+                <select id="mpUnidad" class="w-full px-4 py-3 rounded-xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-organic-green outline-none transition-all appearance-none">
+                    <option value="kg">Kilogramos (kg)</option>
+                    <option value="g">Gramos (g)</option>
+                    <option value="lt">Litros (lt)</option>
+                    <option value="ml">Mililitros (ml)</option>
+                    <option value="un">Unidades (un)</option>
+                </select>
+            </div>
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-500 ml-1">Cantidad x Empaque</label>
+                <input id="mpCantidadEmpaque" type="number" step="any" placeholder="1.0" class="w-full px-4 py-3 rounded-xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-organic-green outline-none transition-all">
+            </div>
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-500 ml-1">Precio x Empaque</label>
+                <div class="relative">
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                    <input id="mpPrecioEmpaque" type="number" step="any" placeholder="0.00" class="w-full pl-8 pr-4 py-3 rounded-xl border border-slate-100 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-organic-green outline-none transition-all">
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 flex justify-end">
+            <button onclick="agregarMateriaPrimaUI()" class="bg-organic-green text-white px-10 py-4 rounded-2xl font-bold shadow-lg shadow-emerald-100 hover:bg-emerald-700 hover:-translate-y-1 transition-all flex items-center gap-2">
+                <i data-lucide="save" class="w-5 h-5"></i> Guardar en Inventario
+            </button>
+        </div>
+    </section>
+
+    <!-- Contenedor Dinámico del Inventario -->
+    <div id="listaMaterias">
+        <div class="flex items-center justify-center p-20 text-slate-400">
+            <div class="animate-pulse flex flex-col items-center gap-4">
+                <i data-lucide="loader-2" class="w-10 h-10 animate-spin"></i>
+                <span class="font-medium">Cargando inventario...</span>
+            </div>
+        </div>
+    </div>
+</div>

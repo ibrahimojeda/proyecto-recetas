@@ -1,0 +1,85 @@
+let recetas = JSON.parse(localStorage.getItem("recetas")) || [];
+
+function renderListadoRecetas() {
+
+  const cont = document.getElementById("listaRecetas");
+
+  cont.innerHTML = "";
+
+  recetas.forEach((r, i) => {
+
+    cont.innerHTML += `
+      <div>
+        <b>${r.nombre || "Sin nombre"}</b>
+        <span>(${nombreEstado(r.estado)})</span>
+
+        <button onclick="abrirReceta(${i})">Abrir</button>
+        <button onclick="eliminarReceta(${i})">Eliminar</button>
+      </div>
+    `;
+
+  });
+}
+function crearNuevaReceta() {
+
+  receta = crearRecetaBase();
+
+  recetas.push(receta);
+  guardarRecetas();
+
+  irReceta();
+}
+function guardarRecetas() {
+  localStorage.setItem("recetas", JSON.stringify(recetas));
+}
+function abrirReceta(index) {
+
+  receta = recetas[index];
+  irReceta();
+}
+function cargarDatosReceta() {
+
+  document.getElementById("recetaNombre").value = receta.nombre;
+  document.getElementById("recetaDescripcion").value = receta.descripcion;
+}
+function guardarDatosReceta() {
+
+  const nombre = document.getElementById("recetaNombre").value;
+
+  if (!nombre) {
+    alert("El nombre es obligatorio");
+    return;
+  }
+
+  receta.nombre = nombre;
+  receta.descripcion =
+    document.getElementById("recetaDescripcion").value;
+
+  guardarRecetas();
+
+  alert("La receta fue guardada correctamente.");
+}
+function nombreEstado(estado) {
+
+  switch (estado) {
+    case ESTADOS.BORRADOR: return "Borrador";
+    case ESTADOS.EDICION: return "En edición";
+    case ESTADOS.CALCULADA: return "Calculada";
+    case ESTADOS.PDF: return "PDF generado";
+    default: return "";
+  }
+
+}
+function renderEstadoActual() {
+
+  const cont = document.getElementById("estadoReceta");
+
+  if (!cont) return;
+
+  cont.innerHTML = `Estado: ${nombreEstado(receta.estado)}`;
+}
+renderEstadoActual();
+function agregarIngrediente()
+actualizarEstadoReceta();
+guardarRecetas();
+

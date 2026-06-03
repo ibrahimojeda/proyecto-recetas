@@ -1,0 +1,5 @@
+let receta = JSON.parse(localStorage.getItem("receta")) || crearRecetaBase();
+
+function guardarReceta() {
+  localStorage.setItem("receta", JSON.stringify(receta));
+}
