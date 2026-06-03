@@ -526,6 +526,7 @@
       <button class="nav-btn" data-view="produccion" onclick="switchView('produccion')">Producción y Almacenes</button>
       <button class="nav-btn" data-view="planilla" onclick="switchView('planilla')">Planilla</button>
       <button class="nav-btn" data-view="recetario" onclick="switchView('recetario')">Recetario</button>
+      <button class="nav-btn" data-view="cotizaciones" onclick="switchView('cotizaciones')">Generar Cotizacion</button>
       <button class="nav-btn" data-view="costos" onclick="switchView('costos')">Estructura de Costos</button>
       <button class="nav-btn" data-view="logs" onclick="switchView('logs')">Logs</button>
       <button class="nav-btn" data-view="asistente" onclick="switchView('asistente')">Asistente IA</button>
@@ -574,6 +575,14 @@
             </div>
           </div>
           <div id="listaRecetas" class="grid"></div>
+        </div>
+      </section>
+      <section id="view-cotizaciones" class="hidden">
+        <div class="panel">
+          <h2 class="section-title">Generar Cotizacion</h2>
+          <div style="margin-top:.6rem;">
+            <iframe id="cotizacionesFrame" src="views/cotizaciones.html" style="width:100%; height:820px; border:0;" title="Generador de Cotizaciones"></iframe>
+          </div>
         </div>
       </section>
 
@@ -3077,6 +3086,11 @@
         ? renderAll
         : (typeof window.renderAll === "function" ? window.renderAll : null);
       if (refresh) refresh();
+
+      // If opening cotizaciones view, initialize iframe with recipes and meta
+      if (view === 'cotizaciones') {
+        try { sendInitToCotizaciones(); } catch (e) { console.warn('init cotizaciones failed', e); }
+      }
     }
 
     function renderKpis() {
@@ -3278,6 +3292,41 @@
     function getDayKey(dateLike = new Date()) {
       const d = new Date(dateLike);
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    function formatDateSpanish(d) {
+      const dt = new Date(d || Date.now());
+      const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+      return `${dt.getDate()} de ${months[dt.getMonth()]} de ${dt.getFullYear()}`;
+    }
+
+    function getNextQuoteSerialForDay(dayKey) {
+      const key = `quotes-seq-${dayKey.replace(/-/g,'')}`;
+      const cur = Number(localStorage.getItem(key) || 0) || 0;
+      const next = cur + 1;
+      localStorage.setItem(key, String(next));
+      return next;
+    }
+
+    function getNextQuoteNumber() {
+      const todayKey = (new Date()).toISOString().slice(0,10).replace(/-/g,'');
+      const serial = getNextQuoteSerialForDay(todayKey);
+      return `${todayKey}-${pad3(serial)}`;
+    }
+
+    function sendInitToCotizaciones() {
+      const iframe = document.getElementById('cotizacionesFrame');
+      if (!iframe || !iframe.contentWindow) return;
+      const recipesPayload = (state.recetas || []).map(r => {
+        const cs = ensureCostStructure(r);
+        const totals = computeCostStructureTotals(cs);
+        const price = Number(totals.pvUnitario || totals.pcUnitario || 0);
+        return { id: r.id, nombre: r.nombre || '', price };
+      });
+      const quoteNo = getNextQuoteNumber();
+      const dateText = formatDateSpanish(new Date());
+      // send via postMessage
+      iframe.contentWindow.postMessage({ type: 'init', recipes: recipesPayload, quoteNo, dateText }, '*');
     }
 
     function getProductionMixByDay(dayKey, extraQtyByRecipe = null) {

@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Cotizaciones — Alimentos Quantum v3</title>
+    <style>
+        :root {
+            --primary: #1a365d;
+            --secondary: #2b6cb0;
+            --accent: #d69e2e;
+            --text-dark: #2d3748;
+            --bg-light: #f7fafc;
+            --border-color: #e2e8f0;
+        }
+        
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #525659;
+            margin: 0;
+            padding: 40px 20px;
+            color: var(--text-dark);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Contenedor de la aplicación (Barra de herramientas superior fija) */
+        .app-controls {
+            width: 842px; /* Mismo ancho que la página A4 */
+            background: #ffffff;
+            padding: 15px 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background-color: var(--secondary);
+            color: white;
+        }
+        .btn-primary:hover { background-color: #2c5282; }
+
+        .btn-success {
+            background-color: #2f855a;
+            color: white;
+        }
+        .btn-success:hover { background-color: #22543d; }
+
+        .logo-uploader {
+            font-size: 13px;
+            color: #4a5568;
+            border: 1px solid #cbd5e0;
+            padding: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        /* Hoja de Trabajo Estilo A4 Real */
+        .page-document {
+            width: 842px; 
+            min-height: 1191px;
+            background: #ffffff;
+            padding: 60px 70px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Encabezado Corporativo */
+        .header-container {
+            border-bottom: 3px solid var(--primary);
+            padding-bottom: 20px;
+            margin-bottom: 35px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Área del Logo Dinámico */
+        .logo-area {
+            display: flex;
+            align-items: center;
+            max-width: 400px;
+        }
+        .company-logo-img {
+            max-height: 80px; /* Altura controlada para el encabezado */
+            max-width: 100%;
+            object-fit: contain;
+        }
+        .logo-placeholder {
+            font-size: 13px;
+            color: #a0aec0;
+            border: 2px dashed #cbd5e0;
+            padding: 20px;
+            text-align: center;
+            border-radius: 6px;
+            width: 200px;
+        }
+
+        .meta-document {
+            text-align: right;
+        }
+
+        .meta-document h2 {
+            margin: 0 0 5px 0;
+            font-size: 22px;
+            color: var(--primary);
+            letter-spacing: 1px;
+        }
+
+        .editable-meta {
+            font-size: 14px;
+            border: 1px dashed transparent;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        .editable-meta:hover {
+            border-color: #cbd5e0;
+            background-color: #f7fafc;
+        }
+        .editable-meta:focus {
+            border-style: solid;
+            border-color: var(--secondary);
+            background: white;
+            outline: none;
+        }
+
+        /* Datos de Cliente */
+        .client-section {
+            background-color: var(--bg-light);
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .client-grid {
+            display: grid;
+            grid-template-columns: 80px 1fr;
+            row-gap: 8px;
+        }
+
+        .client-label {
+            font-weight: bold;
+            color: #4a5568;
+        }
+
+        /* Cuerpo del Texto */
+        .intro-text {
+            font-size: 14px;
+            line-height: 1.6;
+            text-align: justify;
+            margin-bottom: 35px;
+            color: var(--text-dark);
+        }
+
+        /* Tabla Interactiva de Cotización */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .items-table th {
+            background-color: var(--primary);
+            color: white;
+            padding: 12px 14px;
+            font-size: 12px;
+            text-transform: uppercase;
+            text-align: left;
+            letter-spacing: 0.5px;
+        }
+
+        .items-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 13.5px;
+            vertical-align: middle;
+        }
+
+        .select-product {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            font-size: 13.5px;
+            background: white;
+        }
+
+        .input-cell {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            font-size: 13.5px;
+        }
+        .input-cell:focus, .select-product:focus {
+            border-color: var(--secondary);
+            outline: none;
+        }
+
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+
+        .btn-delete {
+            background: #fed7d7;
+            color: #c53030;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-delete:hover { background: #feb2b2; }
+
+        /* Sección de Totales (Sin ITBMS) */
+        .total-box {
+            float: right;
+            width: 320px;
+            margin-bottom: 40px;
+        }
+        .total-row.grand-total {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 12px;
+            background-color: var(--primary);
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+            border-radius: 4px;
+        }
+
+        .clearfix { clear: both; }
+
+        /* Condiciones Comerciales - Editables */
+        .closing-notes-section {
+            margin-top: auto; /* Empuja el pie al fondo */
+            margin-bottom: 40px;
+            font-size: 13px;
+            color: #4a5568;
+            border-top: 1px dashed var(--border-color);
+            padding-top: 20px;
+        }
+        
+        .closing-notes-title {
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .editable-notes-area {
+            line-height: 1.6;
+            min-height: 60px;
+            border: 1px dashed transparent;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        .editable-notes-area:hover {
+            border-color: #cbd5e0;
+            background-color: #f7fafc;
+        }
+        .editable-notes-area:focus {
+            border-style: solid;
+            border-color: var(--secondary);
+            background: white;
+            outline: none;
+        }
+
+        /* Firmas de Pie de Página */
+        .signature-area {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            font-size: 13px;
+        }
+
+        .signature-block {
+            width: 250px;
+            text-align: center;
+        }
+
+        .signature-line {
+            border-top: 1px solid #a0aec0;
+            margin-bottom: 8px;
+            margin-top: 40px;
+        }
+
+        /* Estilos específicos de impresión */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+            .app-controls, .btn-delete, .add-row-container, .logo-uploader {
+                display: none !important;
+            }
+            .page-document {
+                box-shadow: none;
+                padding: 0;
+                width: 100%;
+                min-height: auto;
+            }
+            .select-product {
+                border: none;
+                appearance: none;
+                -webkit-appearance: none;
+                font-weight: bold;
+                color: var(--text-dark);
+                background: transparent;
+                padding: 0;
+            }
+            .input-cell {
+                border: none;
+                background: transparent;
+                padding: 0;
+                text-align: inherit;
+            }
+            .editable-meta:hover, .editable-notes-area:hover {
+                border-color: transparent !important;
+                background-color: transparent !important;
+            }
+            .items-table th {
+                background-color: #1a365d !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .grand-total {
+                background-color: #1a365d !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Panel de Control Superior -->
+    <div class="app-controls">
+        <div style="font-weight: bold; color: var(--primary); font-size: 15px;">
+            Presupuestos Alimentos Quantum (Filtros v3)
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <!-- Subidor de Logo Integrado -->
+            <label for="logoFileInput" class="logo-uploader">📷 Cambiar Logo</label>
+            <input type="file" id="logoFileInput" accept="image/png, image/jpeg" style="display:none;">
+            
+            <button class="btn btn-primary" onclick="agregarFila()" style="margin-left: 10px;">＋ Agregar Producto</button>
+            <button class="btn btn-success" onclick="window.print()" style="margin-left: 10px;">🖨️ Imprimir / Guardar PDF</button>
+        </div>
+    </div>
+
+    <!-- Página A4 Documento Formal -->
+    <div class="page-document">
+        
+        <!-- Encabezado con Identidad Dinámica -->
+        <div class="header-container">
+            <div class="header-top">
+                <div class="logo-area" id="logoContainer">
+                    <!-- Placeholder inicial para el logo -->
+                    <div class="logo-placeholder" id="logoPlaceholder">
+                        Arrastra o sube el logo de la empresa<br>(PNG/JPG recomendado)
+                    </div>
+                </div>
+                <div class="meta-document">
+                    <h2>COTIZACIÓN</h2>
+                    <div style="font-size: 13px; color: #4a5568;">
+                        <strong>No:</strong> <span class="editable-meta" contenteditable="true">20260529-001</span><br>
+                        <strong>Fecha:</strong> <span class="editable-meta" contenteditable="true">29 de mayo de 2026</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección del Cliente -->
+        <div class="client-section">
+            <div class="client-grid">
+                <div class="client-label">Señores:</div>
+                <div class="editable-meta" contenteditable="true" style="font-weight: bold;">UpMarket / Ciudad del Saber</div>
+                
+                <div class="client-label">Dirección:</div>
+                <div class="editable-meta" contenteditable="true">Ciudad del Saber, Clayton, Panamá</div>
+                
+                <div class="client-label">Atención:</div>
+                <div class="editable-meta" contenteditable="true">Dirección de Compras / Operaciones</div>
+            </div>
+        </div>
+
+        <!-- Cuerpo del Texto Filtrado -->
+        <div class="intro-text">
+            A continuación, presentamos la propuesta comercial diseñada especialmente para su modelo operativo. Esta propuesta integra beneficios exclusivos donde los productos están plenamente garantizados en calidad, textura y sabor.
+        </div>
+
+        <!-- *** ELIMINADO BLOQUE DE VENTAJAS CLAVE *** -->
+
+        <!-- Tabla de Presupuesto -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 50%;">Descripción del Producto</th>
+                    <th style="width: 15%; text-align: center;">Cantidad</th>
+                    <th style="width: 15%; text-align: right;">Precio Unit. ($)</th>
+                    <th style="width: 20%; text-align: right; padding-right:15px;">Total ($)</th>
+                    <th style="width: 10%; text-align: center;" class="btn-delete-head"></th>
+                </tr>
+            </thead>
+            <tbody id="invoiceItems">
+                <!-- Renglones dinámicos gestionados por JavaScript -->
+            </tbody>
+        </table>
+
+        <!-- Contenedor de Totales (Sin ITBMS) -->
+        <div class="total-box">
+            <div class="total-row grand-total">
+                <span>TOTAL NETO:</span>
+                <span id="grandTotalVal">$0.00</span>
+            </div>
+        </div>
+        
+        <div class="clearfix"></div>
+
+        <!-- Sección de Condiciones Comerciales - Editables -->
+        <div class="closing-notes-section">
+            <div class="closing-notes-title">Condiciones Comerciales:</div>
+            <div class="editable-notes-area" contenteditable="true">
+                • Los precios indicados corresponden a productos despachados en modalidad de congelación rápida.<br>
+                • Vigencia de la cotización: 30 días a partir de la fecha de emisión.<br>
+                • Entrega programada según acuerdos de distribución logística institucional.
+            </div>
+        </div>
+
+        <!-- Espacio de Firmas -->
+        <div class="signature-area">
+            <div class="signature-block">
+                <div class="signature-line"></div>
+                <strong>Alimentos Quantum S.A.</strong><br>
+                <span>Ibrahim Ojeda</span><br>
+                <span style="font-size: 11px; color:#718096;">Gerente Comercial / Ventas</span>
+            </div>
+            
+            <div class="signature-block">
+                <div class="signature-line"></div>
+                <strong>Aceptación del Cliente</strong><br>
+                <span>Firma Autorizada</span><br>
+                <span style="font-size: 11px; color:#718096;">Fecha de Aprobación</span>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Catálogo de recetas anteriores integradas con costos unitarios calculados
+        const catalogomastro = [
+            { nombre: "Foccacia de Queso 30gr Cocido PC", precio: 0.28 },
+            { nombre: "Pan Baguette Tipo Flauta 300gr", precio: 0.90 },
+            { nombre: "Pan Baguette Blanco 35gr Cocido", precio: 0.23 },
+            { nombre: "Pan Baguette Rustico 35gr Cocido", precio: 0.25 },
+            { nombre: "Pan Baguette de Leche 50gr", precio: 0.13 },
+            { nombre: "Pan Flauta China 320gr Lote Base", precio: 0.16 },
+            { nombre: "Pan Michita Tradicional Horno", precio: 0.18 },
+            { nombre: "Cheesecake Clásico Base Crema (180g)", precio: 1.45 },
+            { nombre: "Pan Croisant Gourmet 90g Lote", precio: 0.35 },
+            { nombre: "[ Producto Nuevo Manual ]", precio: 0.00 }
+        ];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // Cargar elementos por defecto al iniciar
+            agregarFila("Foccacia de Queso 30gr Cocido PC", 200);
+            agregarFila("Pan Baguette Tipo Flauta 300gr", 80);
+        });
+
+        // --- Lógica del Logo Dinámico ---
+        const logoFileInput = document.getElementById('logoFileInput');
+        const logoContainer = document.getElementById('logoContainer');
+
+        logoFileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    // Reemplazar placeholder por la imagen real subida
+                    logoContainer.innerHTML = `<img src="${event.target.result}" class="company-logo-img" alt="Logo de la empresa">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // --- Lógica de la Tabla de Cotización ---
+            // --- API externa (parent) integration ---
+            window.addEventListener('message', (ev) => {
+                try {
+                    const msg = ev.data || {};
+                    if (msg && msg.type === 'init') {
+                        // replace catalog with provided recipes
+                        if (Array.isArray(msg.recipes)) {
+                            catalogomastro.length = 0;
+                            msg.recipes.forEach(r => catalogomastro.push({ nombre: r.nombre || '', precio: Number(r.price || 0) }));
+                            catalogomastro.push({ nombre: '[ Producto Nuevo Manual ]', precio: 0.00 });
+                            // rebuild rows
+                            const tbody = document.getElementById('invoiceItems');
+                            tbody.innerHTML = '';
+                            // add two default rows if available
+                            if (catalogomastro.length) {
+                                agregarFila(catalogomastro[0]?.nombre || '', 1);
+                                if (catalogomastro[1]) agregarFila(catalogomastro[1].nombre || '', 1);
+                            }
+                        }
+                        if (msg.quoteNo) {
+                            const noSpan = document.querySelectorAll('.meta-document .editable-meta')[0];
+                            if (noSpan) noSpan.textContent = msg.quoteNo;
+                        }
+                        if (msg.dateText) {
+                            const dateSpan = document.querySelectorAll('.meta-document .editable-meta')[1];
+                            if (dateSpan) dateSpan.textContent = msg.dateText;
+                        }
+                        // recalc totals after init
+                        setTimeout(recalcularTotales, 80);
+                    }
+                } catch (err) {
+                    console.warn('cotizaciones: failed to process message', err);
+                }
+            });
+        function agregarFila(productoPredeterminado = "", cantidadPredeterminada = 1) {
+            const tbody = document.getElementById("invoiceItems");
+            const tr = document.createElement("tr");
+
+            let optionsHTML = catalogomastro.map(prod => 
+                `<option value="${prod.nombre}" ${prod.nombre === productoPredeterminado ? 'selected' : ''}>${prod.nombre}</option>`
+            ).join('');
+
+            tr.innerHTML = `
+                <td>
+                    <select class="select-product" onchange="cambioProducto(this)">
+                        ${optionsHTML}
+                    </select>
+                    <input type="text" class="input-cell txt-manual" style="display:none; margin-top:5px;" placeholder="Nombre del nuevo producto..." oninput="recalcularTotales()">
+                </td>
+                <td>
+                    <input type="number" class="input-cell text-center inp-cantidad" value="${cantidadPredeterminada}" min="1" oninput="recalcularTotales()">
+                </td>
+                <td>
+                    <input type="number" class="input-cell text-right inp-precio" value="0.00" step="0.01" oninput="recalcularTotales()">
+                </td>
+                <td class="text-right cell-total" style="font-weight: bold; padding-right:15px; color: #1a365d;">
+                    $0.00
+                </td>
+                <td class="text-center">
+                    <button class="btn-delete" onclick="eliminarFila(this)">✕</button>
+                </td>
+            `;
+
+            tbody.appendChild(tr);
+            
+            const selectElement = tr.querySelector('.select-product');
+            cambioProducto(selectElement);
+        }
+
+        function cambioProducto(selectObj) {
+            const fila = selectObj.closest('tr');
+            const txtManual = fila.querySelector('.txt-manual');
+            const inpPrecio = fila.querySelector('.inp-precio');
+            
+            const prodSeleccionado = catalogomastro.find(p => p.nombre === selectObj.value);
+            
+            if (selectObj.value === "[ Producto Nuevo Manual ]") {
+                txtManual.style.display = "block";
+                inpPrecio.value = "0.00";
+                inpPrecio.disabled = false;
+            } else {
+                txtManual.style.display = "none";
+                txtManual.value = "";
+                inpPrecio.value = prodSeleccionado.precio.toFixed(2);
+            }
+            recalcularTotales();
+        }
+
+        function eliminarFila(btnObj) {
+            btnObj.closest('tr').remove();
+            recalcularTotales();
+        }
+
+        function recalcularTotales() {
+            const filas = document.querySelectorAll("#invoiceItems tr");
+            let totalGeneral = 0;
+
+            filas.forEach(fila => {
+                const cantidad = parseFloat(fila.querySelector('.inp-cantidad').value) || 0;
+                const precio = parseFloat(fila.querySelector('.inp-precio').value) || 0;
+                
+                let totalLinea = cantidad * precio;
+                totalGeneral += totalLinea;
+                
+                fila.querySelector('.cell-total').innerText = "$" + totalLinea.toFixed(2);
+            });
+
+            document.getElementById("grandTotalVal").innerText = "$" + totalGeneral.toFixed(2);
+        }
+    </script>
+</body>
+</html>
