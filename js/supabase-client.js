@@ -89,9 +89,74 @@
     }
   }
 
-  // expose helpers
+  // CRUD helpers for entidades individuales
+  async function fetchRecetas() {
+    const client = ensureClient(); if (!client) return [];
+    try { const { data } = await client.from('recetas').select('*'); return data || []; } catch (e) { console.debug('fetchRecetas failed', e); return []; }
+  }
+
+  async function createReceta(receta) {
+    const client = ensureClient(); if (!client) return { error: 'no-client' };
+    try {
+      const payload = [{ id: receta.id || undefined, nombre: receta.nombre || null, descripcion: receta.descripcion || null, tipo: receta.tipo || null, produccion: receta.produccion || null, receta_json: receta, ficha_tecnica: receta.fichaTecnica || null }];
+      const { data, error } = await client.from('recetas').insert(payload).select();
+      return error ? { error } : { data };
+    } catch (err) { console.debug('createReceta failed', err); return { error: err }; }
+  }
+
+  async function updateReceta(receta) {
+    const client = ensureClient(); if (!client) return { error: 'no-client' };
+    try {
+      const payload = { nombre: receta.nombre || null, descripcion: receta.descripcion || null, tipo: receta.tipo || null, produccion: receta.produccion || null, receta_json: receta, ficha_tecnica: receta.fichaTecnica || null, updated_at: new Date().toISOString() };
+      const { data, error } = await client.from('recetas').update(payload).eq('id', receta.id).select();
+      return error ? { error } : { data };
+    } catch (err) { console.debug('updateReceta failed', err); return { error: err }; }
+  }
+
+  async function deleteReceta(id) {
+    const client = ensureClient(); if (!client) return { error: 'no-client' };
+    try { const { data, error } = await client.from('recetas').delete().eq('id', id).select(); return error ? { error } : { data }; } catch (err) { console.debug('deleteReceta failed', err); return { error: err }; }
+  }
+
+  async function fetchMps() {
+    const client = ensureClient(); if (!client) return [];
+    try { const { data } = await client.from('materias_primas').select('*'); return data || []; } catch (e) { console.debug('fetchMps failed', e); return []; }
+  }
+
+  async function createMp(mp) {
+    const client = ensureClient(); if (!client) return { error: 'no-client' };
+    try {
+      const payload = [{ id: mp.id || undefined, nombre: mp.nombre || null, proveedor: mp.proveedor || null, unidad_base: mp.unidadBase || null, cantidad_empaque: mp.cantidadEmpaque || null, precio_empaque: mp.precioEmpaque || null, meta: mp.meta || null }];
+      const { data, error } = await client.from('materias_primas').insert(payload).select();
+      return error ? { error } : { data };
+    } catch (err) { console.debug('createMp failed', err); return { error: err }; }
+  }
+
+  async function updateMp(mp) {
+    const client = ensureClient(); if (!client) return { error: 'no-client' };
+    try {
+      const payload = { nombre: mp.nombre || null, proveedor: mp.proveedor || null, unidad_base: mp.unidadBase || null, cantidad_empaque: mp.cantidadEmpaque || null, precio_empaque: mp.precioEmpaque || null, meta: mp.meta || null, updated_at: new Date().toISOString() };
+      const { data, error } = await client.from('materias_primas').update(payload).eq('id', mp.id).select();
+      return error ? { error } : { data };
+    } catch (err) { console.debug('updateMp failed', err); return { error: err }; }
+  }
+
+  async function deleteMp(id) {
+    const client = ensureClient(); if (!client) return { error: 'no-client' };
+    try { const { data, error } = await client.from('materias_primas').delete().eq('id', id).select(); return error ? { error } : { data }; } catch (err) { console.debug('deleteMp failed', err); return { error: err }; }
+  }
+
   window.supabaseBridge = {
     fetchAllNormalizedState,
-    syncNormalizedState
+    syncNormalizedState,
+    // entity CRUD
+    fetchRecetas,
+    createReceta,
+    updateReceta,
+    deleteReceta,
+    fetchMps,
+    createMp,
+    updateMp,
+    deleteMp
   };
 })();

@@ -8130,7 +8130,7 @@
         `Pulsa Aceptar para actualizar la receta existente, o Cancelar para guardar esta receta como una nueva variación.`;
     }
 
-    function saveRecipeChanges() {
+    async function saveRecipeChanges() {
       const receta = currentRecipe();
       if (!receta) return;
       receta.nombre = document.getElementById("recetaNombre").value.trim();
@@ -8223,6 +8223,19 @@
       logSystem("recetas", "update", "receta", { recipeId: receta.id, nombre: receta.nombre || "" });
       saveState();
       renderAll();
+
+      // Try to persist the changed recipe in Supabase (prefer per-entity update/create)
+      try {
+        if (window.supabaseBridge && (typeof window.supabaseBridge.updateReceta === 'function' || typeof window.supabaseBridge.createReceta === 'function') && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+          // Attempt update first; if no rows updated, attempt create
+          const upd = await window.supabaseBridge.updateReceta(receta);
+          if (!upd || upd.error || !Array.isArray(upd.data) || upd.data.length === 0) {
+            const crt = await window.supabaseBridge.createReceta(receta);
+            if (crt && crt.error) console.debug('createReceta error', crt.error);
+          }
+        }
+      } catch (e) { console.debug('recipe persist to supabase failed', e); }
+
       if (scaleInfo.applied) {
         alert(`Receta guardada. Gramajes ajustados con factor ${scaleInfo.factor.toFixed(4)} para cumplir peso objetivo.`);
       } else {
@@ -8230,7 +8243,7 @@
       }
     }
 
-    function addMp() {
+    async function addMp() {
       const nombre = document.getElementById("mpNombre").value.trim();
       if (!nombre) {
         alert("El nombre del insumo es obligatorio.");
@@ -8242,21 +8255,31 @@
       const unidadBase = Number.isFinite(factor) ? "gr" : unidadRaw;
       const cantidadEmpaque = Number.isFinite(factor) ? Number((cantidadRaw * factor).toFixed(6)) : cantidadRaw;
 
-      state.materiasPrimas.push({
+      const newMp = {
         id: uid(),
         nombre,
         proveedor: document.getElementById("mpProveedor").value.trim(),
         unidadBase,
         cantidadEmpaque,
         precioEmpaque: Math.max(0, readLocaleInputNumber("mpPrecio", 0))
-      });
+      };
+
+      state.materiasPrimas.push(newMp);
+      // try persist single materia prima
+      try {
+        if (window.supabaseBridge && typeof window.supabaseBridge.createMp === 'function' && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+          const res = await window.supabaseBridge.createMp(newMp);
+          if (res && res.error) console.debug('createMp error', res.error);
+        }
+      } catch (e) { console.debug('createMp threw', e); }
+
       logSystem("inventario", "create", "materia_prima", { nombre });
       saveState();
       renderAll();
       ["mpNombre", "mpProveedor", "mpUnidad", "mpCantidad", "mpPrecio"].forEach(id => document.getElementById(id).value = "");
     }
 
-    function editMp(id) {
+    async function editMp(id) {
       const mp = state.materiasPrimas.find(x => x.id === id);
       if (!mp) return;
 
@@ -8292,6 +8315,13 @@
       mp.unidadBase = unidadBase;
       mp.cantidadEmpaque = cantidadEmpaque;
       mp.precioEmpaque = precioEmpaque;
+
+      try {
+        if (window.supabaseBridge && typeof window.supabaseBridge.updateMp === 'function' && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+          const res = await window.supabaseBridge.updateMp(mp);
+          if (res && res.error) console.debug('updateMp error', res.error);
+        }
+      } catch (e) { console.debug('updateMp threw', e); }
 
       logSystem("inventario", "update", "materia_prima", { id: mp.id, nombre: mp.nombre });
       saveState();
