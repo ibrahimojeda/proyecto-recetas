@@ -8381,6 +8381,56 @@
       });
     }
 
+    // Import helpers: map CSV rows to materias_primas and recetas
+    async function importMpsFromCsvText(text) {
+      try {
+        const rows = parseCsvRows(text);
+        if (!rows || !rows.length) return { imported: 0 };
+        let imported = 0;
+        for (const r of rows) {
+          const mp = {
+            id: uid(),
+            nombre: String(r.nombre || r.ingrediente || "").trim(),
+            proveedor: String(r.proveedor || "").trim(),
+            unidadBase: String(r.unidadBase || r.unidad || "un").trim(),
+            cantidadEmpaque: Number(r.cantidadEmpaque || r.cantidad || 0) || 0,
+            precioEmpaque: Number(r.precioEmpaque || r.precio || 0) || 0,
+            meta: null
+          };
+          state.materiasPrimas.push(mp);
+          imported++;
+          try {
+            if (window.supabaseBridge && typeof window.supabaseBridge.createMp === 'function' && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+              await window.supabaseBridge.createMp(mp);
+            }
+          } catch (e) { console.debug('createMp on import failed', e); }
+        }
+        saveState(); renderAll();
+        return { imported };
+      } catch (e) { console.debug('importMpsFromCsvText failed', e); return { imported: 0, error: e }; }
+    }
+
+    async function importRecetasFromJson(payload) {
+      try {
+        const arr = Array.isArray(payload) ? payload : (payload?.recetas || []);
+        if (!arr || !arr.length) return { imported: 0 };
+        let imported = 0;
+        for (const r of arr) {
+          const receta = Object.assign({}, r);
+          receta.id = receta.id || uid();
+          state.recetas.push(receta);
+          imported++;
+          try {
+            if (window.supabaseBridge && typeof window.supabaseBridge.createReceta === 'function' && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+              await window.supabaseBridge.createReceta(receta);
+            }
+          } catch (e) { console.debug('createReceta on import failed', e); }
+        }
+        saveState(); renderAll();
+        return { imported };
+      } catch (e) { console.debug('importRecetasFromJson failed', e); return { imported: 0, error: e }; }
+    }
+
     function sanitizeImportedMp(raw) {
       const nombre = String(raw.nombre || "").trim();
       if (!nombre) return null;
