@@ -17,13 +17,11 @@ insert into app_state (id, state) values ('default', '{}') on conflict (id) do n
 
 -- Enable row level security and create permissive policies for development
 alter table app_state enable row level security;
-
--- Allow anon select
-create policy "allow anon select" on app_state for select using (true);
--- Allow anon insert
-create policy "allow anon insert" on app_state for insert with check (true);
--- Allow anon update
-create policy "allow anon update" on app_state for update using (true) with check (true);
+-- Allow public (anon) read access for convenience
+create policy "public_select" on app_state for select using (true);
+-- Require authenticated users for modifications (recommended for production)
+create policy "auth_insert" on app_state for insert with check (auth.role() = 'authenticated');
+create policy "auth_update" on app_state for update using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 -- Allow anon delete (optional - disabled)
 -- create policy "allow anon delete" on app_state for delete using (true);
 
@@ -53,15 +51,17 @@ create table if not exists recetas (
 );
 
 -- Enable RLS for these tables as well and create permissive policies
+
 alter table materias_primas enable row level security;
-create policy "allow anon select" on materias_primas for select using (true);
-create policy "allow anon insert" on materias_primas for insert with check (true);
-create policy "allow anon update" on materias_primas for update using (true) with check (true);
+create policy "public_select" on materias_primas for select using (true);
+create policy "auth_insert" on materias_primas for insert with check (auth.role() = 'authenticated');
+create policy "auth_update" on materias_primas for update using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
 
 alter table recetas enable row level security;
-create policy "allow anon select" on recetas for select using (true);
-create policy "allow anon insert" on recetas for insert with check (true);
-create policy "allow anon update" on recetas for update using (true) with check (true);
+create policy "public_select" on recetas for select using (true);
+create policy "auth_insert" on recetas for insert with check (auth.role() = 'authenticated');
+create policy "auth_update" on recetas for update using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 -- Indexes to help queries
 create index if not exists idx_recetas_nombre on recetas (lower(nombre));
