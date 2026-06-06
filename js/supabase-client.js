@@ -95,10 +95,28 @@
     try { const { data } = await client.from('recetas').select('*'); return data || []; } catch (e) { console.debug('fetchRecetas failed', e); return []; }
   }
 
+  // Helper to get current authenticated user's id
+  async function getCurrentUserId() {
+    const client = ensureClient(); if (!client) return null;
+    try {
+      if (client.auth && typeof client.auth.getUser === 'function') {
+        const { data, error } = await client.auth.getUser();
+        if (error) return null;
+        return data?.user?.id || null;
+      }
+      if (client.auth && typeof client.auth.getSession === 'function') {
+        const { data } = await client.auth.getSession();
+        return data?.session?.user?.id || null;
+      }
+    } catch (e) { console.debug('getCurrentUserId failed', e); }
+    return null;
+  }
+
   async function createReceta(receta) {
     const client = ensureClient(); if (!client) return { error: 'no-client' };
     try {
-      const payload = [{ id: receta.id || undefined, nombre: receta.nombre || null, descripcion: receta.descripcion || null, tipo: receta.tipo || null, produccion: receta.produccion || null, receta_json: receta, ficha_tecnica: receta.fichaTecnica || null }];
+      const uid = await getCurrentUserId();
+      const payload = [{ id: receta.id || undefined, owner: uid || null, nombre: receta.nombre || null, descripcion: receta.descripcion || null, tipo: receta.tipo || null, produccion: receta.produccion || null, receta_json: receta, ficha_tecnica: receta.fichaTecnica || null }];
       const { data, error } = await client.from('recetas').insert(payload).select();
       return error ? { error } : { data };
     } catch (err) { console.debug('createReceta failed', err); return { error: err }; }
@@ -107,7 +125,10 @@
   async function updateReceta(receta) {
     const client = ensureClient(); if (!client) return { error: 'no-client' };
     try {
-      const payload = { nombre: receta.nombre || null, descripcion: receta.descripcion || null, tipo: receta.tipo || null, produccion: receta.produccion || null, receta_json: receta, ficha_tecnica: receta.fichaTecnica || null, updated_at: new Date().toISOString() };
+      // Ensure we preserve owner when updating (RLS requires new.owner = owner)
+      const { data: existing } = await client.from('recetas').select('owner').eq('id', receta.id).single();
+      const owner = existing?.owner || await getCurrentUserId();
+      const payload = { owner: owner || null, nombre: receta.nombre || null, descripcion: receta.descripcion || null, tipo: receta.tipo || null, produccion: receta.produccion || null, receta_json: receta, ficha_tecnica: receta.fichaTecnica || null, updated_at: new Date().toISOString() };
       const { data, error } = await client.from('recetas').update(payload).eq('id', receta.id).select();
       return error ? { error } : { data };
     } catch (err) { console.debug('updateReceta failed', err); return { error: err }; }
@@ -126,7 +147,8 @@
   async function createMp(mp) {
     const client = ensureClient(); if (!client) return { error: 'no-client' };
     try {
-      const payload = [{ id: mp.id || undefined, nombre: mp.nombre || null, proveedor: mp.proveedor || null, unidad_base: mp.unidadBase || null, cantidad_empaque: mp.cantidadEmpaque || null, precio_empaque: mp.precioEmpaque || null, meta: mp.meta || null }];
+      const uid = await getCurrentUserId();
+      const payload = [{ id: mp.id || undefined, owner: uid || null, nombre: mp.nombre || null, proveedor: mp.proveedor || null, unidad_base: mp.unidadBase || null, cantidad_empaque: mp.cantidadEmpaque || null, precio_empaque: mp.precioEmpaque || null, meta: mp.meta || null }];
       const { data, error } = await client.from('materias_primas').insert(payload).select();
       return error ? { error } : { data };
     } catch (err) { console.debug('createMp failed', err); return { error: err }; }
@@ -135,7 +157,10 @@
   async function updateMp(mp) {
     const client = ensureClient(); if (!client) return { error: 'no-client' };
     try {
-      const payload = { nombre: mp.nombre || null, proveedor: mp.proveedor || null, unidad_base: mp.unidadBase || null, cantidad_empaque: mp.cantidadEmpaque || null, precio_empaque: mp.precioEmpaque || null, meta: mp.meta || null, updated_at: new Date().toISOString() };
+      // preserve owner
+      const { data: existing } = await client.from('materias_primas').select('owner').eq('id', mp.id).single();
+      const owner = existing?.owner || await getCurrentUserId();
+      const payload = { owner: owner || null, nombre: mp.nombre || null, proveedor: mp.proveedor || null, unidad_base: mp.unidadBase || null, cantidad_empaque: mp.cantidadEmpaque || null, precio_empaque: mp.precioEmpaque || null, meta: mp.meta || null, updated_at: new Date().toISOString() };
       const { data, error } = await client.from('materias_primas').update(payload).eq('id', mp.id).select();
       return error ? { error } : { data };
     } catch (err) { console.debug('updateMp failed', err); return { error: err }; }

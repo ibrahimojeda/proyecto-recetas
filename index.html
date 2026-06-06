@@ -558,6 +558,12 @@
           <button id="btnGuardarDbSegura" class="btn primary" type="button">Vincular Guardado Seguro</button>
           <label class="btn" for="inputCargarDbSegura">Cargar BD Segura</label>
           <input id="inputCargarDbSegura" type="file" accept=".qccdb,.json" class="hidden">
+          <div id="authControls" style="display:flex; gap:.35rem; align-items:center;">
+            <span id="authUserLabel" class="muted">No autenticado</span>
+            <button id="btnSignIn" class="btn">Iniciar sesión</button>
+            <button id="btnSignUp" class="btn">Registrarse</button>
+            <button id="btnSignOut" class="btn hidden">Cerrar sesión</button>
+          </div>
         </div>
       </div>
 
@@ -8381,56 +8387,6 @@
       });
     }
 
-    // Import helpers: map CSV rows to materias_primas and recetas
-    async function importMpsFromCsvText(text) {
-      try {
-        const rows = parseCsvRows(text);
-        if (!rows || !rows.length) return { imported: 0 };
-        let imported = 0;
-        for (const r of rows) {
-          const mp = {
-            id: uid(),
-            nombre: String(r.nombre || r.ingrediente || "").trim(),
-            proveedor: String(r.proveedor || "").trim(),
-            unidadBase: String(r.unidadBase || r.unidad || "un").trim(),
-            cantidadEmpaque: Number(r.cantidadEmpaque || r.cantidad || 0) || 0,
-            precioEmpaque: Number(r.precioEmpaque || r.precio || 0) || 0,
-            meta: null
-          };
-          state.materiasPrimas.push(mp);
-          imported++;
-          try {
-            if (window.supabaseBridge && typeof window.supabaseBridge.createMp === 'function' && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
-              await window.supabaseBridge.createMp(mp);
-            }
-          } catch (e) { console.debug('createMp on import failed', e); }
-        }
-        saveState(); renderAll();
-        return { imported };
-      } catch (e) { console.debug('importMpsFromCsvText failed', e); return { imported: 0, error: e }; }
-    }
-
-    async function importRecetasFromJson(payload) {
-      try {
-        const arr = Array.isArray(payload) ? payload : (payload?.recetas || []);
-        if (!arr || !arr.length) return { imported: 0 };
-        let imported = 0;
-        for (const r of arr) {
-          const receta = Object.assign({}, r);
-          receta.id = receta.id || uid();
-          state.recetas.push(receta);
-          imported++;
-          try {
-            if (window.supabaseBridge && typeof window.supabaseBridge.createReceta === 'function' && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
-              await window.supabaseBridge.createReceta(receta);
-            }
-          } catch (e) { console.debug('createReceta on import failed', e); }
-        }
-        saveState(); renderAll();
-        return { imported };
-      } catch (e) { console.debug('importRecetasFromJson failed', e); return { imported: 0, error: e }; }
-    }
-
     function sanitizeImportedMp(raw) {
       const nombre = String(raw.nombre || "").trim();
       if (!nombre) return null;
@@ -10891,6 +10847,104 @@
         console.debug('No seed-state.json found or failed to load', err);
       }
     }
+
+    // Supabase Auth helpers and UI
+    function getSupaClient() {
+      try {
+        if (window.__SupaClient) return window.__SupaClient;
+        if (window.supabase && typeof window.supabase.createClient === 'function' && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+          window.__SupaClient = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+          return window.__SupaClient;
+        }
+      } catch (e) { console.debug('getSupaClient failed', e); }
+      return null;
+    }
+
+    async function renderAuthControls() {
+      const client = getSupaClient();
+      const userLabel = document.getElementById('authUserLabel');
+      const btnSignIn = document.getElementById('btnSignIn');
+      const btnSignUp = document.getElementById('btnSignUp');
+      const btnSignOut = document.getElementById('btnSignOut');
+      if (!client) {
+        userLabel.textContent = 'Supabase no configurado';
+        btnSignIn.classList.add('hidden'); btnSignUp.classList.add('hidden'); btnSignOut.classList.add('hidden');
+        return;
+      }
+      try {
+        const { data } = await client.auth.getSession();
+        const user = data?.session?.user || null;
+        if (user) {
+          userLabel.textContent = `Usuario: ${user.email || user.id}`;
+          btnSignIn.classList.add('hidden'); btnSignUp.classList.add('hidden'); btnSignOut.classList.remove('hidden');
+        } else {
+          userLabel.textContent = 'No autenticado';
+          btnSignIn.classList.remove('hidden'); btnSignUp.classList.remove('hidden'); btnSignOut.classList.add('hidden');
+        }
+      } catch (e) { console.debug('renderAuthControls failed', e); }
+    }
+
+    async function signInPrompt() {
+      const email = prompt('Correo electrónico:');
+      if (!email) return;
+      const password = prompt('Contraseña:');
+      if (password === null) return;
+      const client = getSupaClient(); if (!client) return alert('Supabase no configurado');
+      try {
+        const res = await client.auth.signInWithPassword({ email, password });
+        if (res.error) return alert('Error inicio sesión: ' + (res.error.message || res.error));
+        alert('Sesión iniciada');
+        renderAuthControls();
+      } catch (e) { console.debug('signIn failed', e); alert('Error al iniciar sesión'); }
+    }
+
+    async function signUpPrompt() {
+      const email = prompt('Correo electrónico (registro):');
+      if (!email) return;
+      const password = prompt('Contraseña (registro):');
+      if (password === null) return;
+      const client = getSupaClient(); if (!client) return alert('Supabase no configurado');
+      try {
+        const res = await client.auth.signUp({ email, password });
+        if (res.error) return alert('Error registro: ' + (res.error.message || res.error));
+        alert('Registro iniciado. Revisa tu correo para confirmar si aplica.');
+        renderAuthControls();
+      } catch (e) { console.debug('signUp failed', e); alert('Error al registrarse'); }
+    }
+
+    async function signOutUser() {
+      const client = getSupaClient(); if (!client) return;
+      try { await client.auth.signOut(); alert('Sesión cerrada'); renderAuthControls(); } catch (e) { console.debug('signOut failed', e); }
+    }
+
+    // wire auth buttons
+    document.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'btnSignIn') signInPrompt();
+      if (e.target && e.target.id === 'btnSignUp') signUpPrompt();
+      if (e.target && e.target.id === 'btnSignOut') signOutUser();
+    });
+
+    // connect import inputs to import helpers
+    document.getElementById('inputImportar')?.addEventListener('change', async (ev) => {
+      const f = ev.target.files && ev.target.files[0]; if (!f) return;
+      try {
+        const text = await f.text();
+        const payload = JSON.parse(text);
+        const res = await importRecetasFromJson(payload);
+        alert(`Importadas ${res.imported || 0} recetas`);
+      } catch (e) { console.debug('import JSON failed', e); alert('Error al importar JSON'); }
+      ev.target.value = '';
+    });
+
+    document.getElementById('inputImportPlanillaCsv')?.addEventListener('change', async (ev) => {
+      const f = ev.target.files && ev.target.files[0]; if (!f) return;
+      try {
+        const text = await f.text();
+        const res = await importMpsFromCsvText(text);
+        alert(`Importados ${res.imported || 0} insumos`);
+      } catch (e) { console.debug('import CSV failed', e); alert('Error al importar CSV'); }
+      ev.target.value = '';
+    });
 
     (async function initAsync() {
       try { await tryAutoImportRecoveryStateOnHttp(); } catch (e) { /* ignore */ }
