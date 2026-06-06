@@ -18,42 +18,80 @@
     }
   };
 
-  async function loadStateFromSupabase() {
+  // Load normalized entities: recetas and materias_primas, and fallback to app_state
+  async function fetchAllNormalizedState() {
     const client = ensureClient();
     if (!client) return null;
     try {
-      const { data, error } = await client.from('app_state').select('state').eq('id', 'default').single();
-      if (error) {
-        console.debug('Supabase load error', error);
-        return null;
+      const res = { recetas: [], materiasPrimas: [], appState: null };
+      // Fetch recetas
+      const { data: recs, error: errR } = await client.from('recetas').select('*');
+      if (!errR && Array.isArray(recs)) {
+        // Map receta rows into the internal shape: prefer receta_json if present
+        res.recetas = recs.map(r => r.receta_json || ({ id: r.id, nombre: r.nombre, descripcion: r.descripcion, produccion: r.produccion, fichaTecnica: r.ficha_tecnica }));
       }
-      return data?.state || null;
+      // Fetch materias_primas
+      const { data: mps, error: errM } = await client.from('materias_primas').select('*');
+      if (!errM && Array.isArray(mps)) {
+        res.materiasPrimas = mps.map(m => ({ id: m.id, nombre: m.nombre, proveedor: m.proveedor, unidadBase: m.unidad_base, cantidadEmpaque: m.cantidad_empaque, precioEmpaque: m.precio_empaque, meta: m.meta }));
+      }
+      // Also try app_state backup
+      const { data: appRows } = await client.from('app_state').select('state').eq('id', 'default').single();
+      if (appRows && appRows.state) res.appState = appRows.state;
+      return res;
     } catch (err) {
-      console.debug('Supabase load threw', err);
+      console.debug('Supabase normalized fetch failed', err);
       return null;
     }
   }
 
-  async function saveStateToSupabase(state) {
+  // Sync normalized entities: upsert recetas and materias_primas, and update app_state backup
+  async function syncNormalizedState(state) {
     const client = ensureClient();
     if (!client) return { error: 'no-client' };
     try {
-      const payload = { id: 'default', state };
-      const { data, error } = await client.from('app_state').upsert(payload).select();
-      if (error) {
-        console.debug('Supabase save error', error);
-        return { error };
+      // Upsert materias_primas
+      const mps = Array.isArray(state.materiasPrimas) ? state.materiasPrimas.map(mp => ({
+        id: mp.id || undefined,
+        nombre: mp.nombre || null,
+        proveedor: mp.proveedor || null,
+        unidad_base: mp.unidadBase || null,
+        cantidad_empaque: mp.cantidadEmpaque || null,
+        precio_empaque: mp.precioEmpaque || null,
+        meta: mp.meta || null
+      })) : [];
+      if (mps.length) {
+        await client.from('materias_primas').upsert(mps, { onConflict: 'id' });
       }
-      return { data };
+
+      // Upsert recetas
+      const recs = Array.isArray(state.recetas) ? state.recetas.map(r => ({
+        id: r.id || undefined,
+        nombre: r.nombre || null,
+        descripcion: r.descripcion || null,
+        tipo: r.tipo || null,
+        produccion: r.produccion || null,
+        receta_json: r,
+        ficha_tecnica: r.fichaTecnica || null
+      })) : [];
+      if (recs.length) {
+        await client.from('recetas').upsert(recs, { onConflict: 'id' });
+      }
+
+      // Update app_state backup row (store minimal state)
+      const backup = { id: 'default', state: { recetas: state.recetas || [], materiasPrimas: state.materiasPrimas || [] } };
+      await client.from('app_state').upsert(backup).select();
+
+      return { success: true };
     } catch (err) {
-      console.debug('Supabase save threw', err);
+      console.debug('Supabase sync failed', err);
       return { error: err };
     }
   }
 
   // expose helpers
   window.supabaseBridge = {
-    loadStateFromSupabase,
-    saveStateToSupabase
+    fetchAllNormalizedState,
+    syncNormalizedState
   };
 })();

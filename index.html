@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Control de Costos</title>
   <script>
-    // Supabase configuration - set these before deploying or edit here for local testing
-    // Example SUPABASE_URL: 'https://<your-project-ref>.supabase.co'
-    // Paste your public anon key into SUPABASE_ANON_KEY if you want client-side access.
-    window.SUPABASE_URL = window.SUPABASE_URL || '';
-    window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '';
+    // Supabase configuration - configured from user input
+    // Project URL (omit trailing /rest/v1):
+    window.SUPABASE_URL = 'https://hpxiagncmnvbxpgmuzak.supabase.co';
+    // Public anon key (client-side safe for public, but do not use service_role here)
+    window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhweGlhZ25jbW52YnhwZ211emFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3MjkzMjksImV4cCI6MjA5NjMwNTMyOX0.Vy9Fgkoz5kfgaLiABy9EuTAjhBQ2vY7QuMzxwUXlj7E';
   </script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
@@ -1835,13 +1835,14 @@
       scheduleHistoryDbAutoSave();
       // Async save to Supabase if configured
       try {
-        if (window.supabaseBridge && typeof window.supabaseBridge.saveStateToSupabase === 'function' && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
-          window.supabaseBridge.saveStateToSupabase(state).then(res => {
-            if (res && res.error) console.debug('Supabase save error', res.error);
-          }).catch(e => console.debug('Supabase save threw', e));
+        if (window.supabaseBridge && typeof window.supabaseBridge.syncNormalizedState === 'function' && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+          // Fire-and-forget normalized sync to avoid blocking UI; keep as best-effort
+          window.supabaseBridge.syncNormalizedState(state).then(res => {
+            if (res && res.error) console.debug('Supabase sync error', res.error);
+          }).catch(e => console.debug('Supabase sync threw', e));
         }
       } catch (e) {
-        console.debug('Supabase save scheduling failed', e);
+        console.debug('Supabase sync scheduling failed', e);
       }
     }
 
@@ -10817,21 +10818,18 @@
       async function tryLoadStateFromSupabase() {
         try {
           if (!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) return;
-          if (!window.supabaseBridge || typeof window.supabaseBridge.loadStateFromSupabase !== 'function') return;
-          const remote = await window.supabaseBridge.loadStateFromSupabase();
+          if (!window.supabaseBridge || typeof window.supabaseBridge.fetchAllNormalizedState !== 'function') return;
+          const remote = await window.supabaseBridge.fetchAllNormalizedState();
           if (!remote || typeof remote !== 'object') return;
-          if (!isStateLikeObject(remote)) return;
-          state = Object.assign({}, state, {
-            materiasPrimas: Array.isArray(remote.materiasPrimas) ? remote.materiasPrimas : state.materiasPrimas,
-            recetas: Array.isArray(remote.recetas) ? remote.recetas : state.recetas,
-            lots: Array.isArray(remote.lots) ? remote.lots : state.lots,
-            lotMovements: Array.isArray(remote.lotMovements) ? remote.lotMovements : state.lotMovements,
-            warehouses: Array.isArray(remote.warehouses) ? remote.warehouses : state.warehouses,
-            productionReports: Array.isArray(remote.productionReports) ? remote.productionReports : state.productionReports,
-            activeRecipeId: remote.activeRecipeId || state.activeRecipeId
-          });
+          // merge normalized entities
+          if (Array.isArray(remote.materiasPrimas) && remote.materiasPrimas.length) state.materiasPrimas = remote.materiasPrimas;
+          if (Array.isArray(remote.recetas) && remote.recetas.length) state.recetas = remote.recetas;
+          // fallback appState for other fields
+          if (remote.appState && isStateLikeObject(remote.appState)) {
+            state = Object.assign({}, state, remote.appState);
+          }
           saveState();
-          console.info('State loaded from Supabase');
+          console.info('State loaded from Supabase (normalized)');
         } catch (err) {
           console.debug('Supabase load failed', err);
         }
