@@ -4,11 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Control de Costos</title>
+  <script>
+    // Supabase configuration - set these before deploying or edit here for local testing
+    // Example SUPABASE_URL: 'https://<your-project-ref>.supabase.co'
+    // Paste your public anon key into SUPABASE_ANON_KEY if you want client-side access.
+    window.SUPABASE_URL = window.SUPABASE_URL || '';
+    window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '';
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
   <style>
     :root {
       --organic-green: #166534;
@@ -1825,6 +1833,16 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       scheduleSecureSystemAutoSave();
       scheduleHistoryDbAutoSave();
+      // Async save to Supabase if configured
+      try {
+        if (window.supabaseBridge && typeof window.supabaseBridge.saveStateToSupabase === 'function' && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+          window.supabaseBridge.saveStateToSupabase(state).then(res => {
+            if (res && res.error) console.debug('Supabase save error', res.error);
+          }).catch(e => console.debug('Supabase save threw', e));
+        }
+      } catch (e) {
+        console.debug('Supabase save scheduling failed', e);
+      }
     }
 
     function ensureWarehouses() {
@@ -10795,6 +10813,31 @@
 
     (async function initAsync() {
       try { await tryAutoImportRecoveryStateOnHttp(); } catch (e) { /* ignore */ }
+      // Try load from Supabase (if configured) before falling back to seed
+      async function tryLoadStateFromSupabase() {
+        try {
+          if (!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) return;
+          if (!window.supabaseBridge || typeof window.supabaseBridge.loadStateFromSupabase !== 'function') return;
+          const remote = await window.supabaseBridge.loadStateFromSupabase();
+          if (!remote || typeof remote !== 'object') return;
+          if (!isStateLikeObject(remote)) return;
+          state = Object.assign({}, state, {
+            materiasPrimas: Array.isArray(remote.materiasPrimas) ? remote.materiasPrimas : state.materiasPrimas,
+            recetas: Array.isArray(remote.recetas) ? remote.recetas : state.recetas,
+            lots: Array.isArray(remote.lots) ? remote.lots : state.lots,
+            lotMovements: Array.isArray(remote.lotMovements) ? remote.lotMovements : state.lotMovements,
+            warehouses: Array.isArray(remote.warehouses) ? remote.warehouses : state.warehouses,
+            productionReports: Array.isArray(remote.productionReports) ? remote.productionReports : state.productionReports,
+            activeRecipeId: remote.activeRecipeId || state.activeRecipeId
+          });
+          saveState();
+          console.info('State loaded from Supabase');
+        } catch (err) {
+          console.debug('Supabase load failed', err);
+        }
+      }
+
+      try { await tryLoadStateFromSupabase(); } catch (e) { /* ignore */ }
       try { await tryLoadSeedState(); } catch (e) { /* ignore */ }
       renderAll();
       renderAiRecipePreview();
